@@ -16,7 +16,7 @@ const safeArray = (val: any): string[] => {
 };
 
 const AgentManagement: React.FC = () => {
-  const { agents, pages, addAgent, updateUser, removeAgent, currentUser } = useApp();
+  const { agents, pages, addAgent, updateUser, removeAgent, currentUser, assignAgentToPage, unassignAgentFromPage } = useApp();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [assigningAgent, setAssigningAgent] = useState<User | null>(null);
   const [showResetModal, setShowResetModal] = useState<User | null>(null);
@@ -81,12 +81,17 @@ const AgentManagement: React.FC = () => {
     setIsSubmitting(true);
     try {
       const currentPages = safeArray(assigningAgent.assignedPageIds);
-      const newPages = currentPages.includes(pageId)
-        ? currentPages.filter(id => id !== pageId)
-        : [...currentPages, pageId];
-      
-      await updateUser(assigningAgent.id, { assignedPageIds: newPages });
-      setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
+      if (currentPages.includes(pageId)) {
+        await unassignAgentFromPage(assigningAgent.id, pageId);
+        // Update local modal state immediately with expected result
+        const newPages = currentPages.filter(id => id !== pageId);
+        setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
+      } else {
+        await assignAgentToPage(assigningAgent.id, pageId);
+        // Update local modal state immediately with expected result
+        const newPages = [...currentPages, pageId];
+        setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
+      }
     } finally {
       setIsSubmitting(false);
     }
