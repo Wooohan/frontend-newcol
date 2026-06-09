@@ -171,7 +171,7 @@ const PageSettings: React.FC = () => {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Authorized Agents</p>
                 <div className="flex flex-wrap gap-3">
                   {(page.assignedAgentIds || []).length > 0 ? (
-                    page.assignedAgentIds.map(id => {
+                    (page.assignedAgentIds || []).map(id => {
                       const agent = agents.find(a => a.id === id);
                       return agent ? (
                         <div key={id} className="flex items-center gap-2 pl-1 pr-4 py-1.5 bg-slate-50 text-slate-700 rounded-full text-[11px] font-bold border border-slate-100 group/item hover:bg-blue-50 hover:border-blue-200 transition-colors">
