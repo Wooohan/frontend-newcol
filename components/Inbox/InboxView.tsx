@@ -5,20 +5,27 @@ import { Conversation, ConversationStatus, UserRole } from '../../types';
 import ChatWindow from './ChatWindow';
 
 const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }> = ({ conversation, className }) => {
-  const [url, setUrl] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
 
+  // Use customerAvatar URL directly, or fall back to customerAvatarBlob if available
+  const avatarUrl = conversation.customerAvatar || '';
+  const blobUrl = conversation.customerAvatarBlob ? URL.createObjectURL(conversation.customerAvatarBlob) : null;
+  const src = avatarUrl || blobUrl || '';
+
+  // Reset error state when conversation changes
   useEffect(() => {
-    if (conversation.customerAvatarBlob) {
-      const objectUrl = URL.createObjectURL(conversation.customerAvatarBlob);
-      setUrl(objectUrl);
-      return () => URL.revokeObjectURL(objectUrl);
-    }
-    setUrl(null);
-  }, [conversation.customerAvatarBlob]);
+    setImgError(false);
+  }, [conversation.id, conversation.customerAvatar]);
 
-  if (url) {
+  if (src && !imgError) {
     return (
-      <img src={url} className={className} alt="" />
+      <img
+        src={src}
+        className={className}
+        alt=""
+        onError={() => setImgError(true)}
+        referrerPolicy="no-referrer"
+      />
     );
   }
 
