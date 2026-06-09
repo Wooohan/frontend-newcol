@@ -25,6 +25,18 @@ import { useApp } from '../../store/AppContext';
 import { loginWithFacebook, fetchUserPages, initFacebookSDK, isSecureOrigin, isAppIdConfigured } from '../../services/facebookService';
 import { FacebookPage, User } from '../../types';
 
+// Helper to safely get an array from a value that might be stored as a non-array type
+const safeArray = (val: any): string[] => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+};
+
 const PageSettings: React.FC = () => {
   const { pages, addPage, removePage, updatePage, agents, verifyPageConnection } = useApp();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -91,7 +103,7 @@ const PageSettings: React.FC = () => {
   const toggleAgent = (pageId: string, agentId: string) => {
     const page = pages.find(p => p.id === pageId);
     if (!page) return;
-    const currentIds = page.assignedAgentIds || [];
+    const currentIds = safeArray(page.assignedAgentIds);
     const newIds = currentIds.includes(agentId) 
       ? currentIds.filter(id => id !== agentId)
       : [...currentIds, agentId];
@@ -170,8 +182,8 @@ const PageSettings: React.FC = () => {
               <div className="mt-10">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Authorized Agents</p>
                 <div className="flex flex-wrap gap-3">
-                  {(page.assignedAgentIds || []).length > 0 ? (
-                    (page.assignedAgentIds || []).map(id => {
+                  {safeArray(page.assignedAgentIds).length > 0 ? (
+                    safeArray(page.assignedAgentIds).map(id => {
                       const agent = agents.find(a => a.id === id);
                       return agent ? (
                         <div key={id} className="flex items-center gap-2 pl-1 pr-4 py-1.5 bg-slate-50 text-slate-700 rounded-full text-[11px] font-bold border border-slate-100 group/item hover:bg-blue-50 hover:border-blue-200 transition-colors">
@@ -289,7 +301,7 @@ const PageSettings: React.FC = () => {
                     key={agent.id}
                     onClick={() => toggleAgent(assigningPage.id, agent.id)}
                     className={`w-full flex items-center justify-between p-6 rounded-[32px] border-2 transition-all group ${
-                      (assigningPage.assignedAgentIds || []).includes(agent.id)
+                      safeArray(assigningPage.assignedAgentIds).includes(agent.id)
                         ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-200' 
                         : 'bg-white border-slate-100 hover:border-blue-400 text-slate-800'
                     }`}
@@ -299,11 +311,11 @@ const PageSettings: React.FC = () => {
                        <div>
                           <p className="text-lg font-black leading-tight">{agent.name}</p>
                           <p className={`text-[10px] uppercase font-black tracking-[0.2em] mt-1 ${
-                            (assigningPage.assignedAgentIds || []).includes(agent.id) ? 'text-blue-100' : 'text-slate-400'
+                            safeArray(assigningPage.assignedAgentIds).includes(agent.id) ? 'text-blue-100' : 'text-slate-400'
                           }`}>{agent.role}</p>
                        </div>
                     </div>
-                    {(assigningPage.assignedAgentIds || []).includes(agent.id) && (
+                    {safeArray(assigningPage.assignedAgentIds).includes(agent.id) && (
                       <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-sm">
                         <CheckCircle2 size={20} strokeWidth={3} />
                       </div>
