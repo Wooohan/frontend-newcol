@@ -108,6 +108,8 @@ const PageSettings: React.FC = () => {
       ? currentIds.filter(id => id !== agentId)
       : [...currentIds, agentId];
     updatePage(pageId, { assignedAgentIds: newIds });
+    // Update local modal state so the UI reflects the change immediately
+    setAssigningPage({ ...page, assignedAgentIds: newIds });
   };
 
   return (
