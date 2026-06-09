@@ -1,7 +1,7 @@
 
 import { FacebookPage, Conversation, Message, ConversationStatus } from '../types';
 
-const FB_APP_ID: string = import.meta.env.VITE_FB_APP_ID || '2790618864643960';
+const FB_APP_ID: string = (import.meta as any).env?.VITE_FB_APP_ID || '2790618864643960';
 
 let sdkPromise: Promise<void> | null = null;
 
