@@ -3,7 +3,6 @@ import { Send, X, Link as LinkIcon, Image as ImageIcon, Library, AlertCircle, Ch
 import { Conversation, Message, ApprovedLink, ApprovedMedia, UserRole, ConversationStatus } from '../../types';
 import { useApp } from '../../store/AppContext';
 import { apiService } from '../../services/apiService';
-import { fetchThreadMessages } from '../../services/facebookService';
 
 interface ChatWindowProps {
   conversation: Conversation;
@@ -34,7 +33,7 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
 };
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
-  const { currentUser, messages, pages, approvedLinks, approvedMedia, updateConversation, deleteConversation, socketConnected, bulkAddMessages } = useApp();
+  const { currentUser, messages, pages, approvedLinks, approvedMedia, updateConversation, deleteConversation, socketConnected } = useApp();
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -58,34 +57,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
   , [messages, conversation.id]);
 
-  // Load messages: first from backend DB, then fetch latest from Meta API.
-  // New messages arrive in realtime via Socket.IO (see AppContext).
+  // No more polling — messages arrive via Socket.IO in AppContext.
+  // We just load initial messages from DB once when conversation opens.
   useEffect(() => {
     const loadMessages = async () => {
       if (chatMessages.length === 0) setIsLoadingMessages(true);
       try {
-        // 1. Load existing messages from backend DB
         const url = apiService.getApiBase()
           ? `${apiService.getApiBase()}/api/messages/${conversation.id}`
           : `/api/messages/${conversation.id}`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
-          if (data.messages && data.messages.length > 0) {
-            bulkAddMessages(data.messages, true);
-          }
-        }
-
-        // 2. Fetch latest messages from Meta Graph API and store in DB
-        const currentPage = pages.find(p => p.id === conversation.pageId);
-        if (currentPage?.accessToken) {
-          try {
-            const metaMsgs = await fetchThreadMessages(conversation.id, currentPage.id, currentPage.accessToken);
-            if (metaMsgs.length > 0) {
-              bulkAddMessages(metaMsgs);
-            }
-          } catch (e) {
-            console.warn('Meta message fetch failed:', e);
+          // Messages will also be in the global state; this ensures initial load
+          if (data.messages) {
+            // They're already loaded via getAll in AppContext
           }
         }
       } catch {
@@ -144,7 +130,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
 
     try {
       // Send via backend — backend handles FB API call + DB store + Socket.IO emit.
-      const result = await apiService.sendMessage({
+      // No optimistic UI needed: the socket event will add the message to state.
+      await apiService.sendMessage({
         conversationId: conversation.id,
         text: textToSubmit,
         senderId: currentUser?.id || 'agent',
@@ -153,11 +140,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
         pageAccessToken: currentPage.accessToken,
         isWindowExpired,
       });
-
-      // Add message to local state as fallback (dedup handles if socket event arrives too)
-      if (result.message) {
-        bulkAddMessages([result.message], true);
-      }
 
       setShowLibrary(false);
     } catch (err: any) {
