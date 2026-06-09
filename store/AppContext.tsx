@@ -6,6 +6,8 @@ import { apiService } from '../services/apiService';
 import { fetchPageConversations, fetchThreadMessages, verifyPageAccessToken } from '../services/facebookService';
 import { onNewMessage, onConversationUpdated, getSocket, disconnectSocket } from '../services/socketService';
 
+const API_BASE = (import.meta as any).env?.VITE_API_URL || '';
+
 interface SystemLog {
   id: string;
   timestamp: string;
@@ -241,10 +243,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Refresh avatars for conversations missing profile pictures
+  const refreshAvatars = useCallback(async () => {
+    try {
+      const url = API_BASE ? `${API_BASE}/api/refresh-avatars` : '/api/refresh-avatars';
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.updated > 0) {
+          // Reload conversations to get updated avatars
+          const all = await apiService.getAll<Conversation>('conversations');
+          setConversations(all);
+          addLog('success', `Refreshed ${data.updated} profile pictures`);
+        }
+      }
+    } catch (err: any) {
+      console.warn('Avatar refresh failed:', err.message);
+    }
+  }, []);
+
   // One-time initial sync from Meta on login (NOT polling)
   useEffect(() => {
     if (dbStatus === 'connected' && currentUser && pages.length > 0) {
-      syncMetaConversations(5);
+      syncMetaConversations(5).then(() => {
+        // After sync, refresh any missing avatars
+        refreshAvatars();
+      });
     }
   }, [dbStatus, currentUser, pages.length]);
 
