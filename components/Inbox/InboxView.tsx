@@ -21,11 +21,16 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
     return '';
   };
 
-  const storedAvatarUrl = conversation.customerAvatar || '';
+  // Check if stored avatar is a raw graph.facebook.com URL (these fail without access_token)
+  const rawStoredUrl = conversation.customerAvatar || '';
+  const isDirectFacebookUrl = rawStoredUrl.includes('graph.facebook.com') && !rawStoredUrl.includes('access_token');
+  
+  // Only use stored avatar if it's NOT a direct Facebook URL (those need token)
+  const storedAvatarUrl = isDirectFacebookUrl ? '' : rawStoredUrl;
   const proxyUrl = getProxyPictureUrl(conversation.customerId, conversation.pageId);
   const blobUrl = conversation.customerAvatarBlob ? URL.createObjectURL(conversation.customerAvatarBlob) : null;
 
-  // Use stored avatar first (already fetched with token), then proxy, then blob
+  // Use stored avatar first (only if valid), then backend proxy, then blob
   const src = storedAvatarUrl || proxyUrl || blobUrl || '';
 
   // Reset error state when conversation changes
