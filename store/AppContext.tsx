@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useRe
 import { User, UserRole, FacebookPage, Conversation, Message, ConversationStatus, ApprovedLink, ApprovedMedia } from '../types';
 import { MASTER_ADMIN, MOCK_USERS } from '../constants';
 import { apiService } from '../services/apiService';
-import { fetchPageConversations, verifyPageAccessToken } from '../services/facebookService';
+import { fetchPageConversations, fetchThreadMessages, verifyPageAccessToken } from '../services/facebookService';
 import { onNewMessage, onConversationUpdated, getSocket, disconnectSocket } from '../services/socketService';
 
 interface SystemLog {
@@ -144,6 +144,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     try {
       let hasChanges = false;
+      const updatedConvIds: { convId: string; pageId: string; accessToken: string }[] = [];
+
       const syncPromises = pages.map(async (page) => {
         if (!page.accessToken) return;
         try {
@@ -158,6 +160,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (updates.length > 0) {
             hasChanges = true;
             await Promise.all(updates.map((c) => apiService.put('conversations', c)));
+            updates.forEach((c) => updatedConvIds.push({ convId: c.id, pageId: page.id, accessToken: page.accessToken }));
           }
         } catch (e) {
           console.warn(`Sync failed for ${page.name}`, e);
@@ -165,6 +168,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
 
       await Promise.all(syncPromises);
+
+      // Fetch and store messages for updated conversations
+      if (updatedConvIds.length > 0) {
+        const msgPromises = updatedConvIds.map(async ({ convId, pageId, accessToken }) => {
+          try {
+            const msgs = await fetchThreadMessages(convId, pageId, accessToken);
+            if (msgs.length > 0) {
+              await Promise.all(msgs.map((m) => apiService.put('messages', m)));
+              setMessages((prev) => {
+                const existingIds = new Set(prev.map((m) => m.id));
+                const uniqueNew = msgs.filter((m) => !existingIds.has(m.id));
+                if (uniqueNew.length === 0) return prev;
+                return [...prev, ...uniqueNew];
+              });
+            }
+          } catch (e) {
+            console.warn(`Message sync failed for ${convId}`, e);
+          }
+        });
+        await Promise.all(msgPromises);
+      }
 
       if (hasChanges || limit > 5) {
         const all = await apiService.getAll<Conversation>('conversations');
@@ -266,11 +290,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       await apiService.put('messages', m);
     },
-    bulkAddMessages: async (msgs) => {
-      await Promise.all(msgs.map((m) => apiService.put('messages', m)));
+    bulkAddMessages: async (msgs, silent) => {
+      if (!silent) {
+        await Promise.all(msgs.map((m) => apiService.put('messages', m)));
+      }
       setMessages((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
         const uniqueNew = msgs.filter((m) => !existingIds.has(m.id));
+        if (uniqueNew.length === 0) return prev;
         return [...prev, ...uniqueNew];
       });
     },
