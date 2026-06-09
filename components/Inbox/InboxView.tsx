@@ -6,25 +6,53 @@ import ChatWindow from './ChatWindow';
 
 const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }> = ({ conversation, className }) => {
   const [imgError, setImgError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
-  // Use customerAvatar URL directly, or fall back to customerAvatarBlob if available
-  const avatarUrl = conversation.customerAvatar || '';
+  // Priority order for avatar sources:
+  // 1. Facebook Graph API direct picture URL (most reliable, always fresh)
+  // 2. Stored customerAvatar URL (may expire)
+  // 3. customerAvatarBlob (local cache)
+  const getFacebookPictureUrl = (customerId: string) => {
+    if (customerId && customerId !== 'unknown') {
+      return `https://graph.facebook.com/${customerId}/picture?type=large&width=100&height=100`;
+    }
+    return '';
+  };
+
+  const fbPictureUrl = getFacebookPictureUrl(conversation.customerId);
+  const storedAvatarUrl = conversation.customerAvatar || '';
   const blobUrl = conversation.customerAvatarBlob ? URL.createObjectURL(conversation.customerAvatarBlob) : null;
-  const src = avatarUrl || blobUrl || '';
+
+  // Use FB Graph API picture URL first (it redirects to current picture without needing a token for public profiles)
+  // Fall back to stored URL, then blob
+  const src = fbPictureUrl || storedAvatarUrl || blobUrl || '';
 
   // Reset error state when conversation changes
   useEffect(() => {
     setImgError(false);
-  }, [conversation.id, conversation.customerAvatar]);
+    setRetryCount(0);
+  }, [conversation.id, conversation.customerId]);
 
-  if (src && !imgError) {
+  const handleError = () => {
+    // If FB direct URL failed and we have a stored avatar URL, try that
+    if (retryCount === 0 && storedAvatarUrl && storedAvatarUrl !== fbPictureUrl) {
+      setRetryCount(1);
+    } else {
+      setImgError(true);
+    }
+  };
+
+  const currentSrc = retryCount === 0 ? src : (storedAvatarUrl || blobUrl || '');
+
+  if (currentSrc && !imgError) {
     return (
       <img
-        src={src}
+        src={currentSrc}
         className={className}
         alt=""
-        onError={() => setImgError(true)}
+        onError={handleError}
         referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
       />
     );
   }
