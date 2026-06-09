@@ -258,6 +258,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addPage: async (p) => {
       await apiService.put('pages', p);
       setPages((prev) => [...prev, p]);
+      // Auto-subscribe page to Meta webhooks for realtime messages
+      try {
+        const base = apiService.getApiBase();
+        const url = base ? `${base}/api/subscribe-page` : '/api/subscribe-page';
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageId: p.id, accessToken: p.accessToken }),
+        });
+      } catch (e) {
+        console.warn('Auto-subscribe page to webhooks failed:', e);
+      }
     },
     removePage: async (id) => {
       await apiService.delete('pages', id);
