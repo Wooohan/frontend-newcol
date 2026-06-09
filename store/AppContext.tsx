@@ -37,6 +37,8 @@ interface AppContextType {
   addAgent: (agent: User) => Promise<void>;
   removeAgent: (id: string) => Promise<void>;
   updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  assignAgentToPage: (agentId: string, pageId: string) => Promise<void>;
+  unassignAgentFromPage: (agentId: string, pageId: string) => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   syncMetaConversations: (limit?: number) => Promise<void>;
@@ -327,6 +329,73 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setAgents(updated);
       const agent = updated.find((a) => a.id === id);
       if (agent) await apiService.put('agents', agent);
+    },
+    assignAgentToPage: async (agentId: string, pageId: string) => {
+      // Helper to safely get an array
+      const safeArr = (val: any): string[] => {
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string') { try { const p = JSON.parse(val); if (Array.isArray(p)) return p; } catch {} }
+        return [];
+      };
+
+      // 1. Update the page's assignedAgentIds
+      const page = pages.find((p) => p.id === pageId);
+      if (page) {
+        const currentAgentIds = safeArr(page.assignedAgentIds);
+        if (!currentAgentIds.includes(agentId)) {
+          const newAgentIds = [...currentAgentIds, agentId];
+          const updatedPages = pages.map((p) => (p.id === pageId ? { ...p, assignedAgentIds: newAgentIds } : p));
+          setPages(updatedPages);
+          const updatedPage = updatedPages.find((p) => p.id === pageId);
+          if (updatedPage) await apiService.put('pages', updatedPage);
+        }
+      }
+
+      // 2. Update the agent's assignedPageIds
+      const agent = agents.find((a) => a.id === agentId);
+      if (agent) {
+        const currentPageIds = safeArr(agent.assignedPageIds);
+        if (!currentPageIds.includes(pageId)) {
+          const newPageIds = [...currentPageIds, pageId];
+          const updatedAgents = agents.map((a) => (a.id === agentId ? { ...a, assignedPageIds: newPageIds } : a));
+          setAgents(updatedAgents);
+          const updatedAgent = updatedAgents.find((a) => a.id === agentId);
+          if (updatedAgent) await apiService.put('agents', updatedAgent);
+        }
+      }
+    },
+    unassignAgentFromPage: async (agentId: string, pageId: string) => {
+      const safeArr = (val: any): string[] => {
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string') { try { const p = JSON.parse(val); if (Array.isArray(p)) return p; } catch {} }
+        return [];
+      };
+
+      // 1. Remove agent from page's assignedAgentIds
+      const page = pages.find((p) => p.id === pageId);
+      if (page) {
+        const currentAgentIds = safeArr(page.assignedAgentIds);
+        if (currentAgentIds.includes(agentId)) {
+          const newAgentIds = currentAgentIds.filter((id) => id !== agentId);
+          const updatedPages = pages.map((p) => (p.id === pageId ? { ...p, assignedAgentIds: newAgentIds } : p));
+          setPages(updatedPages);
+          const updatedPage = updatedPages.find((p) => p.id === pageId);
+          if (updatedPage) await apiService.put('pages', updatedPage);
+        }
+      }
+
+      // 2. Remove page from agent's assignedPageIds
+      const agent = agents.find((a) => a.id === agentId);
+      if (agent) {
+        const currentPageIds = safeArr(agent.assignedPageIds);
+        if (currentPageIds.includes(pageId)) {
+          const newPageIds = currentPageIds.filter((id) => id !== pageId);
+          const updatedAgents = agents.map((a) => (a.id === agentId ? { ...a, assignedPageIds: newPageIds } : a));
+          setAgents(updatedAgents);
+          const updatedAgent = updatedAgents.find((a) => a.id === agentId);
+          if (updatedAgent) await apiService.put('agents', updatedAgent);
+        }
+      }
     },
     login: async (e, p) => {
       if (e === MASTER_ADMIN.email && p === MASTER_ADMIN.password) {
