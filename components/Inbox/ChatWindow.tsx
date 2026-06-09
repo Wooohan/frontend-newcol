@@ -52,11 +52,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
     return (now - lastTime) > (24 * 60 * 60 * 1000);
   }, [conversation.lastTimestamp]);
 
-  const chatMessages = useMemo(() =>
-    messages
+  const chatMessages = useMemo(() => {
+    const convMsgs = messages
       .filter(m => m.conversationId === conversation.id)
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-  , [messages, conversation.id]);
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    // Deduplicate: same text+direction within 3s are considered the same message
+    // (DB-stored msg_* and Meta m_* IDs can differ by ~1-2s)
+    const result: typeof convMsgs = [];
+    for (const m of convMsgs) {
+      const ts = new Date(m.timestamp).getTime();
+      const isDup = result.some(r =>
+        r.text === m.text &&
+        r.isIncoming === m.isIncoming &&
+        Math.abs(new Date(r.timestamp).getTime() - ts) < 3000
+      );
+      if (!isDup) result.push(m);
+    }
+    return result;
+  }, [messages, conversation.id]);
 
   // Load messages: first from backend DB, then fetch latest from Meta API.
   // New messages arrive in realtime via Socket.IO (see AppContext).
