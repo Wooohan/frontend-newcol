@@ -16,7 +16,7 @@ const safeArray = (val: any): string[] => {
 };
 
 const AgentManagement: React.FC = () => {
-  const { agents, pages, addAgent, updateUser, updatePage, removeAgent, currentUser } = useApp();
+  const { agents, pages, addAgent, updateUser, removeAgent, currentUser } = useApp();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [assigningAgent, setAssigningAgent] = useState<User | null>(null);
   const [showResetModal, setShowResetModal] = useState<User | null>(null);
@@ -81,24 +81,12 @@ const AgentManagement: React.FC = () => {
     setIsSubmitting(true);
     try {
       const currentPages = safeArray(assigningAgent.assignedPageIds);
-      const isRemoving = currentPages.includes(pageId);
-      const newPages = isRemoving
+      const newPages = currentPages.includes(pageId)
         ? currentPages.filter(id => id !== pageId)
         : [...currentPages, pageId];
       
-      // Update agent's assignedPageIds
       await updateUser(assigningAgent.id, { assignedPageIds: newPages });
       setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
-
-      // Also update the page's assignedAgentIds to keep both sides in sync
-      const page = pages.find(p => p.id === pageId);
-      if (page) {
-        const currentAgents = safeArray(page.assignedAgentIds);
-        const newAgents = isRemoving
-          ? currentAgents.filter(id => id !== assigningAgent.id)
-          : [...currentAgents, assigningAgent.id];
-        await updatePage(pageId, { assignedAgentIds: newAgents });
-      }
     } finally {
       setIsSubmitting(false);
     }
