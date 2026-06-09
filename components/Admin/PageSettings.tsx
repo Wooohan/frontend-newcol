@@ -38,7 +38,7 @@ const safeArray = (val: any): string[] => {
 };
 
 const PageSettings: React.FC = () => {
-  const { pages, addPage, removePage, updatePage, agents, verifyPageConnection } = useApp();
+  const { pages, addPage, removePage, updatePage, agents, verifyPageConnection, assignAgentToPage, unassignAgentFromPage } = useApp();
   const [isConnecting, setIsConnecting] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,16 +100,21 @@ const PageSettings: React.FC = () => {
     setTimeout(() => setVerificationResult(null), 3000);
   };
 
-  const toggleAgent = (pageId: string, agentId: string) => {
+  const toggleAgent = async (pageId: string, agentId: string) => {
     const page = pages.find(p => p.id === pageId);
     if (!page) return;
     const currentIds = safeArray(page.assignedAgentIds);
-    const newIds = currentIds.includes(agentId) 
-      ? currentIds.filter(id => id !== agentId)
-      : [...currentIds, agentId];
-    updatePage(pageId, { assignedAgentIds: newIds });
-    // Update local modal state so the UI reflects the change immediately
-    setAssigningPage({ ...page, assignedAgentIds: newIds });
+    if (currentIds.includes(agentId)) {
+      await unassignAgentFromPage(agentId, pageId);
+      // Update local modal state immediately with expected result
+      const newIds = currentIds.filter(id => id !== agentId);
+      setAssigningPage({ ...page, assignedAgentIds: newIds });
+    } else {
+      await assignAgentToPage(agentId, pageId);
+      // Update local modal state immediately with expected result
+      const newIds = [...currentIds, agentId];
+      setAssigningPage({ ...page, assignedAgentIds: newIds });
+    }
   };
 
   return (
