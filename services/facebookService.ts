@@ -1,280 +1,263 @@
-import express from 'express';
-import { query } from '../services/db.js';
-import logger from '../utils/logger.js';
 
-const router = express.Router();
+import { FacebookPage, Conversation, Message, ConversationStatus } from '../types';
 
-const VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN || 'my_secret_123';
+const FB_APP_ID: string = (import.meta as any).env?.VITE_FB_APP_ID || '2790618864643960';
+const API_BASE: string = (import.meta as any).env?.VITE_API_URL || '';
 
-/**
- * Facebook Webhook Verification (GET)
- */
-router.get('/', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
+let sdkPromise: Promise<void> | null = null;
 
-  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    logger.info('Webhook verified successfully');
-    res.status(200).send(challenge);
-  } else {
-    logger.error('Webhook verification failed');
-    res.status(403).send('Verification failed');
-  }
-});
+export const isAppIdConfigured = () => {
+  return FB_APP_ID !== 'YOUR_FB_APP_ID' && /^\d+$/.test(FB_APP_ID);
+};
 
-/**
- * Facebook Webhook Event Handler (POST)
- * Receives events, stores in PostgreSQL, emits via Socket.IO
- */
-router.post('/', async (req, res) => {
-  const body = req.body;
+export const isSecureOrigin = () => {
+  return window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+};
 
-  // Respond immediately to Facebook (required within 20 seconds)
-  res.status(200).send('EVENT_RECEIVED');
+export const initFacebookSDK = (): Promise<void> => {
+  if (sdkPromise) return sdkPromise;
 
-  if (body.object === 'page') {
-    try {
-      for (const entry of body.entry) {
-        if (!entry.messaging) continue;
-        const webhookEvent = entry.messaging[0];
-        if (!webhookEvent) continue;
-
-        const senderId = webhookEvent.sender.id;
-        const recipientId = webhookEvent.recipient.id;
-        const pageId = recipientId;
-
-        if (webhookEvent.message) {
-          await handleMessage(webhookEvent, pageId, senderId, req.io);
-        } else if (webhookEvent.delivery) {
-          await handleDelivery(webhookEvent);
-        } else if (webhookEvent.read) {
-          await handleRead(webhookEvent);
-        }
-      }
-    } catch (error) {
-      logger.error('Error processing webhook event:', error);
-    }
-  }
-});
-
-/**
- * Fetch the customer's name and profile picture from Facebook Graph API.
- * Uses the page access token stored in the DB for the given pageId.
- * 
- * Multiple strategies are attempted:
- * 1. /{customerId}?fields=name,picture.type(large) — standard approach
- * 2. /{customerId}/picture?access_token=... — direct picture redirect
- * 3. /{conversationId}?fields=participants{name,picture.type(large)} — conversation participants
- */
-async function fetchCustomerProfile(customerId, pageId) {
-  try {
-    // Get the page's access token from DB
-    const pageResult = await query(`SELECT "accessToken" FROM pages WHERE id = $1`, [pageId]);
-    if (pageResult.rows.length === 0 || !pageResult.rows[0].accessToken) {
-      return { name: `User ${customerId.substring(0, 8)}`, avatarUrl: '' };
+  sdkPromise = new Promise<void>((resolve) => {
+    if ((window as any).FB && (window as any).FB._initialized) {
+      resolve();
+      return;
     }
 
-    const accessToken = pageResult.rows[0].accessToken;
-    let name = `User ${customerId.substring(0, 8)}`;
-    let avatarUrl = '';
-
-    // Strategy 1: Standard fields-based approach
-    try {
-      const url = `https://graph.facebook.com/v22.0/${customerId}?fields=name,picture.type(large)&access_token=${accessToken}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (!data.error) {
-        name = data.name || name;
-        avatarUrl = data.picture?.data?.url || '';
-      } else {
-        logger.warn(`Profile fetch (fields) failed for ${customerId}: [${data.error.code}] ${data.error.message}`);
-      }
-    } catch (e) {
-      logger.warn(`Profile fetch (fields) error for ${customerId}:`, e.message);
-    }
-
-    // Strategy 2: Direct picture endpoint with token (if avatar still missing)
-    if (!avatarUrl) {
+    (window as any).fbAsyncInit = function() {
       try {
-        const directPicUrl = `https://graph.facebook.com/v22.0/${customerId}/picture?type=large&width=200&height=200&access_token=${accessToken}`;
-        const directRes = await fetch(directPicUrl, { redirect: 'manual' });
-
-        if (directRes.status === 302 || directRes.status === 301) {
-          const redirectUrl = directRes.headers.get('location');
-          if (redirectUrl && !redirectUrl.includes('static.xx.fbcdn.net/rsrc.php')) {
-            avatarUrl = redirectUrl;
-          }
-        }
+        (window as any).FB.init({
+          appId            : isAppIdConfigured() ? FB_APP_ID : '123456789',
+          cookie           : true,
+          xfbml            : true,
+          version          : 'v22.0',
+          status           : true 
+        });
+        (window as any).FB._initialized = true;
+        resolve();
       } catch (e) {
-        logger.warn(`Direct picture fetch error for ${customerId}:`, e.message);
+        console.error("FB Init Error:", e);
+        resolve();
       }
-    }
-
-    // Strategy 3: Try conversation participants API (if avatar still missing)
-    if (!avatarUrl) {
-      try {
-        const convId = `${pageId}_${customerId}`;
-        const convUrl = `https://graph.facebook.com/v22.0/${convId}?fields=participants{name,picture.type(large)}&access_token=${accessToken}`;
-        const convRes = await fetch(convUrl);
-        const convData = await convRes.json();
-
-        if (!convData.error && convData.participants?.data) {
-          const customer = convData.participants.data.find(p => p.id !== pageId);
-          if (customer) {
-            name = customer.name || name;
-            avatarUrl = customer.picture?.data?.url || avatarUrl;
-          }
-        }
-      } catch (e) {
-        logger.warn(`Conversation participants fetch error for ${customerId}:`, e.message);
-      }
-    }
-
-    // Strategy 4: If name is still default, try to get at least the name from /me/conversations
-    if (name === `User ${customerId.substring(0, 8)}` && !avatarUrl) {
-      // As a last resort, try fetching conversations that include this user
-      try {
-        const searchUrl = `https://graph.facebook.com/v22.0/${pageId}/conversations?fields=participants{name}&user_id=${customerId}&access_token=${accessToken}`;
-        const searchRes = await fetch(searchUrl);
-        const searchData = await searchRes.json();
-
-        if (!searchData.error && searchData.data?.length > 0) {
-          const conv = searchData.data[0];
-          const customer = conv.participants?.data?.find(p => p.id !== pageId);
-          if (customer?.name) {
-            name = customer.name;
-          }
-        }
-      } catch (e) {
-        // Silent — we've exhausted all options
-      }
-    }
-
-    return { name, avatarUrl };
-  } catch (err) {
-    logger.warn('Error fetching customer profile:', err.message);
-    return { name: `User ${customerId.substring(0, 8)}`, avatarUrl: '' };
-  }
-}
-
-async function handleMessage(event, pageId, senderId, io) {
-  const message = event.message;
-  if (!message.text) return;
-
-  try {
-    const messageId = message.mid;
-    const messageText = message.text;
-    const timestamp = new Date(event.timestamp).toISOString();
-
-    // Check/create conversation
-    const convResult = await query(
-      `SELECT id, "customerName", "customerAvatar" FROM conversations WHERE "customerId" = $1 AND "pageId" = $2 LIMIT 1`,
-      [senderId, pageId]
-    );
-
-    let conversationId;
-    let customerName = `User ${senderId.substring(0, 8)}`;
-    let customerAvatar = '';
-
-    if (convResult.rows.length === 0) {
-      // New conversation — fetch customer profile from Facebook
-      const profile = await fetchCustomerProfile(senderId, pageId);
-      customerName = profile.name;
-      customerAvatar = profile.avatarUrl;
-
-      conversationId = `${pageId}_${senderId}`;
-      await query(
-        `INSERT INTO conversations (id, "pageId", "customerId", "customerName", "customerAvatar", "lastMessage", "lastTimestamp", status, "assignedAgentId", "unreadCount")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'OPEN', NULL, 1)
-         ON CONFLICT (id) DO UPDATE SET "lastMessage" = $6, "lastTimestamp" = $7, "unreadCount" = conversations."unreadCount" + 1, "customerName" = $4, "customerAvatar" = $5`,
-        [conversationId, pageId, senderId, customerName, customerAvatar, messageText, timestamp]
-      );
-      logger.info('New conversation created with profile:', conversationId, customerName);
-    } else {
-      conversationId = convResult.rows[0].id;
-      customerName = convResult.rows[0].customerName || customerName;
-      customerAvatar = convResult.rows[0].customerAvatar || '';
-
-      // If avatar is missing, try to fetch it
-      if (!customerAvatar) {
-        const profile = await fetchCustomerProfile(senderId, pageId);
-        customerName = profile.name || customerName;
-        customerAvatar = profile.avatarUrl;
-
-        await query(
-          `UPDATE conversations SET "lastMessage" = $1, "lastTimestamp" = $2, "unreadCount" = "unreadCount" + 1, "customerName" = $3, "customerAvatar" = $4 WHERE id = $5`,
-          [messageText, timestamp, customerName, customerAvatar, conversationId]
-        );
-      } else {
-        await query(
-          `UPDATE conversations SET "lastMessage" = $1, "lastTimestamp" = $2, "unreadCount" = "unreadCount" + 1 WHERE id = $3`,
-          [messageText, timestamp, conversationId]
-        );
-      }
-    }
-
-    // Store message
-    await query(
-      `INSERT INTO messages (id, "conversationId", "senderId", "senderName", text, timestamp, "isIncoming", "isRead")
-       VALUES ($1, $2, $3, $4, $5, $6, true, false)
-       ON CONFLICT (id) DO NOTHING`,
-      [messageId, conversationId, senderId, customerName, messageText, timestamp]
-    );
-
-    const newMessage = {
-      id: messageId,
-      conversationId,
-      senderId,
-      senderName: customerName,
-      text: messageText,
-      timestamp,
-      isIncoming: true,
-      isRead: false,
     };
 
-    // Push to all connected clients via Socket.IO
-    if (io) {
-      io.emit('new_message', newMessage);
+    if (!document.getElementById('facebook-jssdk')) {
+      const fjs = document.getElementsByTagName('script')[0];
+      const js = document.createElement('script') as HTMLScriptElement;
+      js.id = 'facebook-jssdk';
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode?.insertBefore(js, fjs);
+    } else if ((window as any).FB) {
+      (window as any).fbAsyncInit();
+    }
+  });
 
-      // Also emit conversation update
-      const convData = await query(`SELECT * FROM conversations WHERE id = $1`, [conversationId]);
-      if (convData.rows.length > 0) {
-        io.emit('conversation_updated', convData.rows[0]);
+  return sdkPromise;
+};
+
+export const loginWithFacebook = async () => {
+  await initFacebookSDK();
+
+  return new Promise<any>((resolve, reject) => {
+    (window as any).FB.login((response: any) => {
+      if (response.authResponse) {
+        resolve(response.authResponse);
+      } else {
+        reject(response?.error_message || 'Login Failed. Ensure "Login with JavaScript SDK" is ENABLED in Meta Dashboard.');
       }
+    }, { 
+      // Added crucial scopes for persistent Long-Lived tokens
+      scope: 'pages_messaging,pages_show_list,pages_manage_metadata,public_profile,pages_read_engagement' 
+    });
+  });
+};
+
+export const fetchUserPages = async (): Promise<FacebookPage[]> => {
+  await initFacebookSDK();
+
+  // Get the current short-lived user access token from the FB SDK
+  const authResponse = (window as any).FB.getAuthResponse();
+  const shortLivedToken = authResponse?.accessToken;
+
+  if (!shortLivedToken) {
+    throw new Error('No Facebook access token available. Please log in first.');
+  }
+
+  // Try to exchange for long-lived (permanent) page tokens via backend
+  const exchangeUrl = API_BASE ? `${API_BASE}/api/fb/exchange-token` : '/api/fb/exchange-token';
+
+  try {
+    const response = await fetch(exchangeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shortLivedToken }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[FB] Token exchange successful — page tokens are now permanent.');
+
+      const pages: FacebookPage[] = (data.pages || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        isConnected: true,
+        accessToken: p.access_token, // This is now a NEVER-EXPIRING page token
+        assignedAgentIds: []
+      }));
+      return pages;
     }
 
-    logger.info('Message stored and pushed:', messageId);
-  } catch (error) {
-    logger.error('Error handling message:', error);
+    // If exchange endpoint fails (e.g. no APP_SECRET configured), fall back to short-lived tokens
+    const errorData = await response.json().catch(() => ({}));
+    console.warn('[FB] Token exchange failed, falling back to short-lived tokens:', errorData.error || response.statusText);
+  } catch (err: any) {
+    console.warn('[FB] Token exchange endpoint unreachable, falling back to short-lived tokens:', err.message);
   }
-}
 
-async function handleDelivery(event) {
-  const messageIds = event.delivery?.mids;
-  if (messageIds && messageIds.length > 0) {
-    try {
-      const placeholders = messageIds.map((_, i) => `$${i + 1}`).join(', ');
-      await query(`UPDATE messages SET "isRead" = true WHERE id IN (${placeholders})`, messageIds);
-    } catch (error) {
-      logger.error('Error updating delivery status:', error);
+  // Fallback: use short-lived page tokens from FB SDK directly (expire in ~1-2 hours)
+  return new Promise((resolve, reject) => {
+    (window as any).FB.api('/me/accounts', (response: any) => {
+      if (!response || response.error) {
+        reject(response?.error?.message || 'Failed to fetch pages');
+        return;
+      }
+      const pages: FacebookPage[] = (response.data || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        isConnected: true,
+        accessToken: p.access_token,
+        assignedAgentIds: []
+      }));
+      resolve(pages);
+    });
+  });
+};
+
+export const verifyPageAccessToken = async (pageId: string, accessToken: string): Promise<boolean> => {
+  try {
+    const url = `https://graph.facebook.com/v22.0/${pageId}?fields=id,name&access_token=${accessToken}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    // Improved logic: Only fail if the API explicitly says the token is invalid (Code 190)
+    if (data.error && (data.error.code === 190 || data.error.code === 102)) {
+      return false;
     }
+    
+    // If it's a network error or other, assume still connected to prevent accidental UI disconnects
+    return true;
+  } catch (e) {
+    // Persistent by default on network timeout
+    return true;
   }
-}
+};
 
-async function handleRead(event) {
-  const watermark = event.read?.watermark;
-  if (watermark) {
-    try {
-      await query(
-        `UPDATE messages SET "isRead" = true WHERE timestamp <= $1 AND "isRead" = false`,
-        [new Date(watermark).toISOString()]
-      );
-    } catch (error) {
-      logger.error('Error updating read status:', error);
+export const fetchPageConversations = async (
+  pageId: string, 
+  pageAccessToken: string, 
+  limit: number = 100,
+  includeAvatars: boolean = true
+): Promise<Conversation[]> => {
+  // First try with picture field; if the app lacks permission, fall back without it
+  let fields = includeAvatars 
+    ? 'id,snippet,updated_time,participants{id,name,picture.type(large)},unread_count'
+    : 'id,snippet,updated_time,unread_count';
+
+  let url = `https://graph.facebook.com/v22.0/${pageId}/conversations?fields=${fields}&limit=${limit}&access_token=${pageAccessToken}`;
+  let response = await fetch(url);
+  let data = await response.json();
+  
+  // If the picture field causes a permission error, retry without it
+  if (data.error && (data.error.code === 3 || data.error.message?.includes('capability'))) {
+    console.warn('[FB] Picture field not available, retrying without picture:', data.error.message);
+    fields = 'id,snippet,updated_time,participants{id,name},unread_count';
+    url = `https://graph.facebook.com/v22.0/${pageId}/conversations?fields=${fields}&limit=${limit}&access_token=${pageAccessToken}`;
+    response = await fetch(url);
+    data = await response.json();
+  }
+
+  if (data.error) throw new Error(data.error.message);
+
+  return (data.data || []).map((conv: any) => {
+    let customerName = 'Messenger User';
+    let customerId = 'unknown';
+    let avatarUrl = '';
+
+    if (conv.participants?.data) {
+      const customer = conv.participants.data.find((p: any) => p.id !== pageId) || { name: 'Messenger User', id: 'unknown' };
+      customerName = customer.name;
+      customerId = customer.id;
+      // Avatar URL from participants (may be empty if permission denied)
+      avatarUrl = customer.picture?.data?.url || '';
     }
-  }
-}
+    
+    return {
+      id: conv.id,
+      pageId: pageId,
+      customerId: customerId,
+      customerName: customerName,
+      customerAvatar: avatarUrl,
+      lastMessage: conv.snippet || 'No message content',
+      lastTimestamp: conv.updated_time,
+      status: ConversationStatus.OPEN,
+      assignedAgentId: null,
+      unreadCount: conv.unread_count || 0
+    };
+  });
+};
 
-export default router;
+export const fetchThreadMessages = async (conversationId: string, pageId: string, pageAccessToken: string, since?: number): Promise<Message[]> => {
+  let url = `https://graph.facebook.com/v22.0/${conversationId}/messages?fields=id,message,created_time,from&access_token=${pageAccessToken}`;
+  if (since) {
+    url += `&since=${since}`;
+  }
+  
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (data.error) throw new Error(data.error.message);
+
+  return (data.data || []).map((msg: any) => {
+    const isFromPage = msg.from.id === pageId;
+    return {
+      id: msg.id,
+      conversationId: conversationId,
+      senderId: msg.from.id,
+      senderName: msg.from.name,
+      text: msg.message,
+      timestamp: msg.created_time,
+      isIncoming: !isFromPage,
+      isRead: true
+    };
+  }).reverse();
+};
+
+export const sendPageMessage = async (recipientId: string, text: string, pageAccessToken: string, tag?: string) => {
+  const url = `https://graph.facebook.com/v22.0/me/messages?access_token=${pageAccessToken}`;
+  
+  const payload: any = {
+    recipient: { id: recipientId },
+    message: { text },
+    messaging_type: tag ? "MESSAGE_TAG" : "RESPONSE"
+  };
+
+  if (tag) {
+    payload.tag = tag;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  
+  const data = await response.json();
+  if (data.error) {
+    const err = new Error(data.error.message);
+    (err as any).code = data.error.code;
+    (err as any).subcode = data.error.error_subcode;
+    throw err;
+  }
+  return data;
+};
