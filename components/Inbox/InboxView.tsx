@@ -51,7 +51,8 @@ const InboxView: React.FC = () => {
   const visibleConversations = conversations.filter(conv => {
     const page = pages.find(p => p.id === conv.pageId);
     const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
-    const isAssignedToPage = (page?.assignedAgentIds || []).includes(currentUser?.id || '');
+    const agentIds = Array.isArray(page?.assignedAgentIds) ? page.assignedAgentIds : [];
+    const isAssignedToPage = agentIds.includes(currentUser?.id || '');
 
     if (!isAdmin && !isAssignedToPage) return false;
 
