@@ -15,23 +15,29 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
   const [retryCount, setRetryCount] = useState(0);
 
   // Priority order for avatar sources:
-  // 1. Facebook Graph API direct picture URL (most reliable, always fresh)
-  // 2. Stored customerAvatar URL (may expire)
-  // 3. customerAvatarBlob (local cache)
-  const getFacebookPictureUrl = (customerId: string) => {
-    if (customerId && customerId !== 'unknown') {
-      return `https://graph.facebook.com/${customerId}/picture?type=large&width=100&height=100`;
+  // 1. Stored customerAvatar URL (fetched server-side with proper token)
+  // 2. Backend proxy endpoint (fetches with page access token)
+  // 3. Fallback to initials
+  const getProxyPictureUrl = (customerId: string, pageId: string) => {
+    if (customerId && customerId !== 'unknown' && pageId) {
+      // Use backend proxy which has the access token
+      const apiBase = (import.meta as any).env?.VITE_API_URL || window.location.origin;
+      return `${apiBase}/api/profilepic/${customerId}?pageId=${pageId}`;
     }
     return '';
   };
 
-  const fbPictureUrl = getFacebookPictureUrl(conversation.customerId);
-  const storedAvatarUrl = conversation.customerAvatar || '';
+  // Check if stored avatar is a raw graph.facebook.com URL (these fail without access_token)
+  const rawStoredUrl = conversation.customerAvatar || '';
+  const isDirectFacebookUrl = rawStoredUrl.includes('graph.facebook.com') && !rawStoredUrl.includes('access_token');
+
+  // Only use stored avatar if it's NOT a direct Facebook URL (those need token)
+  const storedAvatarUrl = isDirectFacebookUrl ? '' : rawStoredUrl;
+  const proxyUrl = getProxyPictureUrl(conversation.customerId, conversation.pageId);
   const blobUrl = conversation.customerAvatarBlob ? URL.createObjectURL(conversation.customerAvatarBlob) : null;
 
-  // Use FB Graph API picture URL first (it redirects to current picture without needing a token for public profiles)
-  // Fall back to stored URL, then blob
-  const src = fbPictureUrl || storedAvatarUrl || blobUrl || '';
+  // Use stored avatar first (only if valid), then backend proxy, then blob
+  const src = storedAvatarUrl || proxyUrl || blobUrl || '';
 
   // Reset error state when conversation changes
   useEffect(() => {
@@ -40,15 +46,25 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
   }, [conversation.id, conversation.customerId]);
 
   const handleError = () => {
-    // If FB direct URL failed and we have a stored avatar URL, try that
-    if (retryCount === 0 && storedAvatarUrl && storedAvatarUrl !== fbPictureUrl) {
+    // If stored avatar URL failed, try proxy endpoint
+    if (retryCount === 0 && proxyUrl && src !== proxyUrl) {
       setRetryCount(1);
+    } else if (retryCount === 1 && blobUrl) {
+      // If proxy also failed, try blob
+      setRetryCount(2);
     } else {
       setImgError(true);
     }
   };
 
-  const currentSrc = retryCount === 0 ? src : (storedAvatarUrl || blobUrl || '');
+  const getCurrentSrc = () => {
+    if (retryCount === 0) return src;
+    if (retryCount === 1) return proxyUrl || blobUrl || '';
+    if (retryCount === 2) return blobUrl || '';
+    return '';
+  };
+
+  const currentSrc = getCurrentSrc();
 
   if (currentSrc && !imgError) {
     return (
