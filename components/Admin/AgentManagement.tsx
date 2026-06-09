@@ -5,7 +5,7 @@ import { useApp } from '../../store/AppContext';
 import { UserRole, User, FacebookPage } from '../../types';
 
 const AgentManagement: React.FC = () => {
-  const { agents, pages, addAgent, updateUser, removeAgent, currentUser } = useApp();
+  const { agents, pages, addAgent, updateUser, updatePage, removeAgent, currentUser } = useApp();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [assigningAgent, setAssigningAgent] = useState<User | null>(null);
   const [showResetModal, setShowResetModal] = useState<User | null>(null);
@@ -69,13 +69,25 @@ const AgentManagement: React.FC = () => {
     if (!assigningAgent || isSubmitting) return;
     setIsSubmitting(true);
     try {
+      const isAssigning = !(assigningAgent.assignedPageIds || []).includes(pageId);
       const currentPages = assigningAgent.assignedPageIds || [];
-      const newPages = currentPages.includes(pageId)
-        ? currentPages.filter(id => id !== pageId)
-        : [...currentPages, pageId];
-      
+      const newPages = isAssigning
+        ? [...currentPages, pageId]
+        : currentPages.filter(id => id !== pageId);
+
+      // Primary source of truth: agent -> pages
       await updateUser(assigningAgent.id, { assignedPageIds: newPages });
       setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
+
+      // Keep the reverse reference (page -> agents) in sync for display/consistency
+      const page = pages.find(p => p.id === pageId);
+      if (page) {
+        const currentAgentIds = Array.isArray(page.assignedAgentIds) ? page.assignedAgentIds : [];
+        const newAgentIds = isAssigning
+          ? Array.from(new Set([...currentAgentIds, assigningAgent.id]))
+          : currentAgentIds.filter(id => id !== assigningAgent.id);
+        await updatePage(pageId, { assignedAgentIds: newAgentIds });
+      }
     } finally {
       setIsSubmitting(false);
     }
