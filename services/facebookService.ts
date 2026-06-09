@@ -2,6 +2,7 @@
 import { FacebookPage, Conversation, Message, ConversationStatus } from '../types';
 
 const FB_APP_ID: string = (import.meta as any).env?.VITE_FB_APP_ID || '2790618864643960';
+const API_BASE: string = (import.meta as any).env?.VITE_API_URL || '';
 
 let sdkPromise: Promise<void> | null = null;
 
@@ -72,6 +73,48 @@ export const loginWithFacebook = async () => {
 
 export const fetchUserPages = async (): Promise<FacebookPage[]> => {
   await initFacebookSDK();
+
+  // Get the current short-lived user access token from the FB SDK
+  const authResponse = (window as any).FB.getAuthResponse();
+  const shortLivedToken = authResponse?.accessToken;
+
+  if (!shortLivedToken) {
+    throw new Error('No Facebook access token available. Please log in first.');
+  }
+
+  // Try to exchange for long-lived (permanent) page tokens via backend
+  const exchangeUrl = API_BASE ? `${API_BASE}/api/fb/exchange-token` : '/api/fb/exchange-token';
+
+  try {
+    const response = await fetch(exchangeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shortLivedToken }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[FB] Token exchange successful — page tokens are now permanent.');
+
+      const pages: FacebookPage[] = (data.pages || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        isConnected: true,
+        accessToken: p.access_token, // This is now a NEVER-EXPIRING page token
+        assignedAgentIds: []
+      }));
+      return pages;
+    }
+
+    // If exchange endpoint fails (e.g. no APP_SECRET configured), fall back to short-lived tokens
+    const errorData = await response.json().catch(() => ({}));
+    console.warn('[FB] Token exchange failed, falling back to short-lived tokens:', errorData.error || response.statusText);
+  } catch (err: any) {
+    console.warn('[FB] Token exchange endpoint unreachable, falling back to short-lived tokens:', err.message);
+  }
+
+  // Fallback: use short-lived page tokens from FB SDK directly (expire in ~1-2 hours)
   return new Promise((resolve, reject) => {
     (window as any).FB.api('/me/accounts', (response: any) => {
       if (!response || response.error) {
