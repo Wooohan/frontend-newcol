@@ -1,8 +1,19 @@
-
 import React, { useState } from 'react';
 import { UserPlus, Shield, Mail, Activity, Trash2, Key, X, LayoutGrid, CheckCircle2, ChevronRight, Facebook, AlertTriangle, Save, Loader2 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { UserRole, User, FacebookPage } from '../../types';
+
+// Helper to safely get an array from a value that might be stored as a non-array type
+const safeArray = (val: any): string[] => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+};
 
 const AgentManagement: React.FC = () => {
   const { agents, pages, addAgent, updateUser, removeAgent, currentUser } = useApp();
@@ -69,7 +80,7 @@ const AgentManagement: React.FC = () => {
     if (!assigningAgent || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const currentPages = assigningAgent.assignedPageIds || [];
+      const currentPages = safeArray(assigningAgent.assignedPageIds);
       const newPages = currentPages.includes(pageId)
         ? currentPages.filter(id => id !== pageId)
         : [...currentPages, pageId];
@@ -125,7 +136,7 @@ const AgentManagement: React.FC = () => {
                         className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase hover:bg-blue-100 transition-all"
                      >
                        <Facebook size={14} />
-                       {agent.assignedPageIds?.length || 0} Pages Assigned
+                       {safeArray(agent.assignedPageIds).length || 0} Pages Assigned
                      </button>
                   </td>
                   <td className="px-8 py-6">
@@ -212,7 +223,7 @@ const AgentManagement: React.FC = () => {
                       disabled={isSubmitting}
                       onClick={() => togglePageAssignment(page.id)}
                       className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                        (assigningAgent.assignedPageIds || []).includes(page.id)
+                        safeArray(assigningAgent.assignedPageIds).includes(page.id)
                           ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-50' 
                           : 'bg-white border-slate-100 hover:border-slate-300'
                       }`}
@@ -226,7 +237,7 @@ const AgentManagement: React.FC = () => {
                             <p className="text-[10px] text-slate-400 uppercase font-black">{page.category}</p>
                           </div>
                       </div>
-                      {(assigningAgent.assignedPageIds || []).includes(page.id) && <CheckCircle2 className="text-blue-600" size={20} />}
+                      {safeArray(assigningAgent.assignedPageIds).includes(page.id) && <CheckCircle2 className="text-blue-600" size={20} />}
                     </button>
                   ))
                 ) : (
