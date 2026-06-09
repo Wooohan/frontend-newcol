@@ -1,290 +1,219 @@
-
-import React, { useState } from 'react';
-import { UserPlus, Shield, Mail, Activity, Trash2, Key, X, LayoutGrid, CheckCircle2, ChevronRight, Facebook, AlertTriangle, Save, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, MessageSquareOff, Facebook, ChevronLeft, RefreshCw, Loader2, Zap, History, Clock } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
-import { UserRole, User, FacebookPage } from '../../types';
+import { Conversation, ConversationStatus, UserRole } from '../../types';
+import ChatWindow from './ChatWindow';
 
-const AgentManagement: React.FC = () => {
-  const { agents, pages, addAgent, updateUser, updatePage, removeAgent, currentUser } = useApp();
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [assigningAgent, setAssigningAgent] = useState<User | null>(null);
-  const [showResetModal, setShowResetModal] = useState<User | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<UserRole>(UserRole.AGENT);
+const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }> = ({ conversation, className }) => {
+  const [url, setUrl] = useState<string | null>(null);
 
-  const [resetPassValue, setResetPassValue] = useState('');
-
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName || !newEmail || !newPassword || isSubmitting) return;
-
-    setIsSubmitting(true);
-    const newAgent: User = {
-      id: `agent-${Date.now()}`,
-      name: newName,
-      email: newEmail,
-      password: newPassword,
-      role: newRole,
-      avatar: `https://picsum.photos/seed/${Math.random()}/200`,
-      status: 'offline',
-      assignedPageIds: [],
-    };
-
-    try {
-      await addAgent(newAgent);
-      setNewName(''); setNewEmail(''); setNewPassword('');
-      setShowInviteModal(false);
-    } catch (err) {
-      // Error will be caught and logged by AppContext/Debug Terminal
-    } finally {
-      setIsSubmitting(false);
+  useEffect(() => {
+    if (conversation.customerAvatarBlob) {
+      const objectUrl = URL.createObjectURL(conversation.customerAvatarBlob);
+      setUrl(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
     }
-  };
+    setUrl(null);
+  }, [conversation.customerAvatarBlob]);
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showResetModal || !resetPassValue || isSubmitting) return;
-    
-    setIsSubmitting(true);
-    try {
-      await updateUser(showResetModal.id, { password: resetPassValue });
-      setResetPassValue('');
-      setShowResetModal(null);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteAgent = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this agent? This action cannot be undone.")) {
-      await removeAgent(id);
-    }
-  };
-
-  const togglePageAssignment = async (pageId: string) => {
-    if (!assigningAgent || isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      const isAssigning = !(assigningAgent.assignedPageIds || []).includes(pageId);
-      const currentPages = assigningAgent.assignedPageIds || [];
-      const newPages = isAssigning
-        ? [...currentPages, pageId]
-        : currentPages.filter(id => id !== pageId);
-
-      // Primary source of truth: agent -> pages
-      await updateUser(assigningAgent.id, { assignedPageIds: newPages });
-      setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
-
-      // Keep the reverse reference (page -> agents) in sync for display/consistency
-      const page = pages.find(p => p.id === pageId);
-      if (page) {
-        const currentAgentIds = Array.isArray(page.assignedAgentIds) ? page.assignedAgentIds : [];
-        const newAgentIds = isAssigning
-          ? Array.from(new Set([...currentAgentIds, assigningAgent.id]))
-          : currentAgentIds.filter(id => id !== assigningAgent.id);
-        await updatePage(pageId, { assignedAgentIds: newAgentIds });
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  if (url) {
+    return (
+      <img src={url} className={className} alt="" />
+    );
+  }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Agent Control Center</h2>
-          <p className="text-slate-500 text-sm mt-1">Assign agents to specific Facebook Pages and manage credentials.</p>
-        </div>
-        <button 
-          onClick={() => setShowInviteModal(true)}
-          className="flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl"
-        >
-          <UserPlus size={20} /> Add New Agent
-        </button>
-      </div>
-
-      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[800px]">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-100">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Agent</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Page Access</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Manage</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {agents.map((agent) => (
-                <tr key={agent.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-8 py-6">
-                    <div className="flex items-center gap-4">
-                      <img src={agent.avatar} className="w-12 h-12 rounded-2xl object-cover shadow-sm" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">{agent.name}</p>
-                        <p className="text-xs text-slate-400 font-medium">{agent.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-6">
-                     <button 
-                        onClick={() => setAssigningAgent(agent)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase hover:bg-blue-100 transition-all"
-                     >
-                       <Facebook size={14} />
-                       {agent.assignedPageIds?.length || 0} Pages Assigned
-                     </button>
-                  </td>
-                  <td className="px-8 py-6">
-                    <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${
-                      agent.status === 'online' ? 'text-green-600 bg-green-50' : 'text-slate-400 bg-slate-50'
-                    }`}>
-                      {agent.status.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-8 py-6">
-                     <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => setShowResetModal(agent)}
-                          className="p-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-xl transition-all"
-                          title="Reset Password"
-                        >
-                           <Key size={18} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteAgent(agent.id)}
-                          disabled={agent.id === currentUser?.id}
-                          className={`p-2.5 rounded-xl transition-all ${agent.id === currentUser?.id ? 'opacity-20 cursor-not-allowed' : 'hover:bg-red-50 hover:text-red-500 text-slate-400'}`}
-                          title="Delete Agent"
-                        >
-                           <Trash2 size={18} />
-                        </button>
-                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Password Reset Modal */}
-      {showResetModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 animate-in zoom-in-95">
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-2xl font-bold text-slate-800">Reset Credentials</h3>
-                 <button onClick={() => setShowResetModal(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full"><X size={24} /></button>
-              </div>
-              <p className="text-slate-500 text-sm mb-8 leading-relaxed">Assign a new secure password for <span className="font-bold text-slate-800">{showResetModal.name}</span>.</p>
-              <form onSubmit={handleResetPassword} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    autoFocus
-                    value={resetPassValue}
-                    onChange={e => setResetPassValue(e.target.value)}
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-amber-600 text-white rounded-2xl font-bold shadow-xl hover:bg-amber-700 transition-all flex items-center justify-center gap-2">
-                  {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-                  Commit Reset
-                </button>
-              </form>
-           </div>
-        </div>
-      )}
-
-      {/* Page Assignment Modal */}
-      {assigningAgent && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-md p-10 animate-in zoom-in-95">
-              <div className="flex justify-between items-center mb-6">
-                 <div>
-                   <h3 className="text-2xl font-bold text-slate-800">Page Assignment</h3>
-                   <p className="text-sm text-slate-500">Enable page access for <span className="font-bold">{assigningAgent.name}</span></p>
-                 </div>
-                 <button onClick={() => setAssigningAgent(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full"><X size={24} /></button>
-              </div>
-
-              <div className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
-                {pages.length > 0 ? (
-                  pages.map(page => (
-                    <button 
-                      key={page.id}
-                      disabled={isSubmitting}
-                      onClick={() => togglePageAssignment(page.id)}
-                      className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                        (assigningAgent.assignedPageIds || []).includes(page.id)
-                          ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-50' 
-                          : 'bg-white border-slate-100 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
-                            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Facebook size={20} />}
-                          </div>
-                          <div className="text-left">
-                            <p className="text-sm font-bold text-slate-800">{page.name}</p>
-                            <p className="text-[10px] text-slate-400 uppercase font-black">{page.category}</p>
-                          </div>
-                      </div>
-                      {(assigningAgent.assignedPageIds || []).includes(page.id) && <CheckCircle2 className="text-blue-600" size={20} />}
-                    </button>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-slate-400 italic text-sm">No pages connected.</div>
-                )}
-              </div>
-
-              <button 
-                onClick={() => setAssigningAgent(null)}
-                className="w-full mt-8 py-5 bg-blue-600 text-white rounded-2xl font-bold shadow-xl hover:bg-blue-700 transition-all"
-              >
-                Save Permissions
-              </button>
-           </div>
-        </div>
-      )}
-
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg p-10 animate-in zoom-in-95">
-              <h3 className="text-2xl font-bold text-slate-800 mb-8">Register New Agent</h3>
-              <form onSubmit={handleInvite} className="space-y-6">
-                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Agent Name</label>
-                   <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-500" />
-                 </div>
-                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Agent Email</label>
-                   <input type="email" required value={newEmail} onChange={e => setNewEmail(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-500" />
-                 </div>
-                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Initial Password</label>
-                   <input type="password" required value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-500" />
-                 </div>
-                 <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
-                    {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <UserPlus size={20} />}
-                    {isSubmitting ? 'Writing to Atlas...' : 'Complete Registration'}
-                 </button>
-                 <button type="button" onClick={() => setShowInviteModal(false)} className="w-full text-slate-400 font-bold text-xs py-2">Cancel</button>
-              </form>
-           </div>
-        </div>
-      )}
+    <div className={`${className} bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs uppercase overflow-hidden`}>
+      {conversation.customerName.charAt(0)}
     </div>
   );
 };
 
-export default AgentManagement;
+const InboxView: React.FC = () => {
+  const { conversations, currentUser, pages, syncMetaConversations, syncFullHistory, lastSyncTime, isPolling, socketConnected } = useApp();
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ConversationStatus | 'ALL'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDeepSyncing, setIsDeepSyncing] = useState(false);
+
+  const activeConv = conversations.find(c => c.id === activeConvId) || null;
+
+  const handleQuickSync = () => {
+    syncMetaConversations(5);
+  };
+
+  const handleDeepSync = async () => {
+    setIsDeepSyncing(true);
+    await syncFullHistory();
+    setIsDeepSyncing(false);
+  };
+
+  const visibleConversations = conversations.filter(conv => {
+    const page = pages.find(p => p.id === conv.pageId);
+    const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
+    const agentIds = Array.isArray(page?.assignedAgentIds) ? page.assignedAgentIds : [];
+    const isAssignedToPage = agentIds.includes(currentUser?.id || '');
+
+    if (!isAdmin && !isAssignedToPage) return false;
+
+    const matchesFilter = filter === 'ALL' || conv.status === filter;
+    const matchesSearch = conv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const getStatusColor = (status: ConversationStatus) => {
+    switch (status) {
+      case ConversationStatus.OPEN: return 'bg-blue-50 text-blue-600 border-blue-100';
+      case ConversationStatus.PENDING: return 'bg-amber-50 text-amber-600 border-amber-100';
+      case ConversationStatus.RESOLVED: return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      default: return 'bg-slate-50 text-slate-500 border-slate-100';
+    }
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-40px)] bg-white overflow-hidden rounded-3xl md:rounded-[40px] border border-slate-100 shadow-2xl shadow-slate-200/40 relative w-full max-w-full">
+      {/* Sidebar List */}
+      <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col bg-slate-50/30 transition-all shrink-0 overflow-hidden ${activeConvId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 md:p-6 space-y-4 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl font-bold text-slate-800 tracking-tight">Inbox</h2>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></div>
+                <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest truncate">
+                  {socketConnected ? 'Live • Realtime' : 'Reconnecting...'}
+                  {lastSyncTime ? ` • Synced ${lastSyncTime}` : ''}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={handleQuickSync}
+                disabled={isPolling}
+                title="Quick Refresh (Top 5)"
+                className="p-2 bg-white border border-slate-200 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-90 disabled:opacity-50"
+              >
+                {isPolling ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+              </button>
+              <button
+                onClick={handleDeepSync}
+                disabled={isDeepSyncing}
+                title="Sync All History"
+                className="p-2 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-90 disabled:opacity-50"
+              >
+                {isDeepSyncing ? <Loader2 size={16} className="animate-spin" /> : <History size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="relative group">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16} />
+            <input
+              type="text"
+              placeholder="Search customers..."
+              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none shadow-sm focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar shrink-0">
+            {(['ALL', ConversationStatus.OPEN, ConversationStatus.PENDING, ConversationStatus.RESOLVED] as const).map((stat) => (
+              <button
+                key={stat}
+                onClick={() => setFilter(stat)}
+                className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex-shrink-0 border ${
+                  filter === stat
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                    : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                }`}
+              >
+                {stat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-3 md:px-4 pb-8 space-y-2">
+          {visibleConversations.length > 0 ? (
+            visibleConversations.map((conv) => {
+              const isActive = activeConv?.id === conv.id;
+
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => setActiveConvId(conv.id)}
+                  className={`w-full text-left p-3 md:p-4 rounded-2xl md:rounded-[28px] transition-all border relative group overflow-hidden ${
+                    isActive
+                      ? 'bg-white border-blue-500 shadow-xl shadow-blue-100/50 ring-4 ring-blue-50'
+                      : 'bg-transparent border-transparent hover:bg-white hover:border-slate-200'
+                  }`}
+                >
+                  <div className="flex gap-3 min-w-0 overflow-hidden">
+                    <div className="relative flex-shrink-0">
+                      <CachedAvatar conversation={conv} className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl shadow-sm object-cover" />
+                      {conv.unreadCount > 0 && (
+                        <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white">
+                          {conv.unreadCount}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex justify-between items-start mb-0.5 gap-2">
+                        <h4 className={`font-bold truncate text-sm transition-colors flex-1 min-w-0 ${isActive ? 'text-blue-600' : 'text-slate-800'}`}>
+                          {conv.customerName}
+                        </h4>
+                        <span className="text-[9px] font-bold text-slate-400 flex-shrink-0 uppercase whitespace-nowrap">
+                          {new Date(conv.lastTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-[11px] truncate text-slate-500 mb-2 font-medium overflow-hidden">{conv.lastMessage}</p>
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tighter border shrink-0 ${getStatusColor(conv.status)}`}>
+                          {conv.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+              <MessageSquareOff size={32} className="opacity-20 mb-3" />
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-40 text-center px-4">No conversations</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat View */}
+      <div className={`flex-1 bg-white relative min-w-0 overflow-hidden ${!activeConvId ? 'hidden md:flex' : 'flex h-full w-full'}`}>
+        {activeConv ? (
+          <div className="flex flex-col w-full h-full min-w-0 overflow-hidden">
+            <button
+              onClick={() => setActiveConvId(null)}
+              className="md:hidden absolute top-5 left-4 z-50 p-2 bg-slate-100 text-slate-600 rounded-full shadow-sm active:scale-95 transition-transform"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <ChatWindow conversation={activeConv} onDelete={() => setActiveConvId(null)} />
+          </div>
+        ) : (
+          <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 p-8 text-center bg-slate-50/20">
+             <div className="w-24 h-24 bg-white rounded-[40px] flex items-center justify-center mb-8 shadow-sm border border-slate-100">
+               <Zap size={32} className="text-blue-200" />
+             </div>
+             <h3 className="text-slate-800 font-bold mb-2">Live Inbox Active</h3>
+             <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 max-w-[240px] leading-relaxed">
+               Incoming messages appear instantly via WebSocket. No polling needed.
+             </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default InboxView;
