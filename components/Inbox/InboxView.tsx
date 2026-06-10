@@ -78,13 +78,13 @@ const InboxView: React.FC = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-40px)] bg-white overflow-hidden rounded-3xl md:rounded-[40px] border border-slate-100 shadow-2xl shadow-slate-200/40 relative w-full max-w-full">
+    <div className="flex h-[calc(100vh-40px)] bg-white dark:bg-slate-900 overflow-hidden rounded-3xl md:rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/40 dark:shadow-slate-900/40 relative w-full max-w-full">
       {/* Sidebar List */}
-      <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col bg-slate-50/30 transition-all shrink-0 overflow-hidden ${activeConvId ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`w-full md:w-80 border-r border-slate-100 dark:border-slate-800 flex flex-col bg-slate-50/30 dark:bg-slate-900/50 transition-all shrink-0 overflow-hidden ${activeConvId ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 md:p-6 space-y-4 shrink-0">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold text-slate-800 tracking-tight">Inbox</h2>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Inbox</h2>
               <div className="flex items-center gap-1.5 mt-1">
                 <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></div>
                 <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest truncate">
@@ -118,7 +118,7 @@ const InboxView: React.FC = () => {
             <input
               type="text"
               placeholder="Search customers..."
-              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none shadow-sm focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm outline-none shadow-sm focus:ring-4 focus:ring-blue-50 dark:focus:ring-blue-900/30 focus:border-blue-400 transition-all dark:text-slate-200"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -196,23 +196,23 @@ const InboxView: React.FC = () => {
       </div>
 
       {/* Main Chat View */}
-      <div className={`flex-1 bg-white relative min-w-0 overflow-hidden ${!activeConvId ? 'hidden md:flex' : 'flex h-full w-full'}`}>
+      <div className={`flex-1 bg-white dark:bg-slate-900 relative min-w-0 overflow-hidden ${!activeConvId ? 'hidden md:flex' : 'flex h-full w-full'}`}>
         {activeConv ? (
           <div className="flex flex-col w-full h-full min-w-0 overflow-hidden">
             <button
               onClick={() => setActiveConvId(null)}
-              className="md:hidden absolute top-5 left-4 z-50 p-2 bg-slate-100 text-slate-600 rounded-full shadow-sm active:scale-95 transition-transform"
+              className="md:hidden absolute top-5 left-4 z-50 p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full shadow-sm active:scale-95 transition-transform"
             >
               <ChevronLeft size={20} />
             </button>
             <ChatWindow conversation={activeConv} onDelete={() => setActiveConvId(null)} />
           </div>
         ) : (
-          <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 p-8 text-center bg-slate-50/20">
-             <div className="w-24 h-24 bg-white rounded-[40px] flex items-center justify-center mb-8 shadow-sm border border-slate-100">
-               <Zap size={32} className="text-blue-200" />
+          <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 p-8 text-center bg-slate-50/20 dark:bg-slate-900/20">
+             <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-[40px] flex items-center justify-center mb-8 shadow-sm border border-slate-100 dark:border-slate-700">
+               <Zap size={32} className="text-blue-200 dark:text-blue-400" />
              </div>
-             <h3 className="text-slate-800 font-bold mb-2">Live Inbox Active</h3>
+             <h3 className="text-slate-800 dark:text-white font-bold mb-2">Live Inbox Active</h3>
              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 max-w-[240px] leading-relaxed">
                Incoming messages appear instantly via WebSocket. No polling needed.
              </p>
