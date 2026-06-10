@@ -40,7 +40,7 @@ const DashboardView: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Cloud Instance Status</h2>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Cloud Instance Status</h2>
           <div className="flex items-center gap-3 mt-1">
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest transition-colors duration-500 ${
               dbStatus === 'connected' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
@@ -69,31 +69,31 @@ const DashboardView: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white p-7 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+          <div key={idx} className="bg-white dark:bg-slate-900 p-7 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
             <div className="flex items-center justify-between mb-5">
-              <div className={`p-3.5 rounded-2xl ${stat.bg} ${stat.color}`}>
+              <div className={`p-3.5 rounded-2xl ${stat.bg} dark:bg-opacity-20 ${stat.color}`}>
                 <stat.icon size={24} />
               </div>
-              <span className="flex items-center gap-1 text-emerald-500 text-[9px] font-black uppercase tracking-[0.2em] bg-emerald-50 px-2 py-1 rounded-lg">
+              <span className="flex items-center gap-1 text-emerald-500 text-[9px] font-black uppercase tracking-[0.2em] bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg">
                 Verified
               </span>
             </div>
             <p className="text-slate-400 text-[11px] font-black uppercase tracking-widest">{stat.label}</p>
-            <h3 className="text-3xl font-black text-slate-900 mt-1">{stat.value}</h3>
+            <h3 className="text-3xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</h3>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-10 rounded-[48px] border border-slate-100 shadow-sm relative overflow-hidden">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-10 rounded-[48px] border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between mb-10 relative z-10">
              <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-emerald-600 text-white rounded-xl">
                    <Activity size={20} />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">REST API Traffic</h3>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">REST API Traffic</h3>
              </div>
-             <div className="px-4 py-2 bg-slate-50 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-100">
+             <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-100 dark:border-slate-700">
                Source: Server API
              </div>
           </div>
