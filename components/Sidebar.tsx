@@ -14,9 +14,12 @@ import {
   Library,
   ChevronLeft,
   ChevronRight,
-  CheckCircle2
+  CheckCircle2,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
+import { useTheme } from '../store/ThemeContext';
 import { UserRole } from '../types';
 
 interface SidebarProps {
@@ -37,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   setIsMobileOpen
 }) => {
   const { currentUser, logout, updateUser } = useApp();
+  const { theme, toggleTheme } = useTheme();
   const [showSelfReset, setShowSelfReset] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [newPass, setNewPass] = useState('');
@@ -70,19 +74,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const SidebarContent = (
-    <div className={`h-full flex flex-col bg-white border-r border-slate-200 transition-all duration-300 relative ${isCollapsed ? 'w-20' : 'w-64'}`}>
+    <div className={`h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transition-all duration-300 relative ${isCollapsed ? 'w-20' : 'w-64'}`}>
       <button 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 bg-white border border-slate-200 rounded-full items-center justify-center text-slate-400 hover:text-blue-600 shadow-sm z-50 transition-transform"
+        className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-full items-center justify-center text-slate-400 hover:text-blue-600 shadow-sm z-50 transition-transform"
       >
         {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
 
       <div className={`p-6 flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-        <div className="min-w-[40px] w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-100">
+        <div className="min-w-[40px] w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-100 dark:shadow-blue-900/30">
           <MessageSquare size={24} />
         </div>
-        {!isCollapsed && <span className="font-bold text-xl text-slate-800 tracking-tight animate-in fade-in duration-300">Flow</span>}
+        {!isCollapsed && <span className="font-bold text-xl text-slate-800 dark:text-white tracking-tight animate-in fade-in duration-300">Flow</span>}
       </div>
 
       <nav className="flex-1 px-4 space-y-1 mt-4">
@@ -96,8 +100,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
               activeView === item.id 
-                ? 'bg-blue-50 text-blue-600 font-semibold shadow-sm ring-1 ring-blue-100' 
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold shadow-sm ring-1 ring-blue-100 dark:ring-blue-800' 
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
             } ${isCollapsed ? 'justify-center' : ''}`}
           >
             <item.icon size={20} className="min-w-[20px]" />
@@ -106,16 +110,28 @@ const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-100">
-        <div className={`p-3 bg-slate-50 rounded-2xl mb-4 transition-all ${isCollapsed ? 'bg-transparent p-0' : ''}`}>
+      <div className="p-4 border-t border-slate-100 dark:border-slate-700">
+        {/* Theme Toggle */}
+        <div className={`mb-4 ${isCollapsed ? 'flex justify-center' : ''}`}>
+          <button
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 ${isCollapsed ? 'justify-center' : 'w-full'}`}
+          >
+            {theme === 'light' ? <Moon size={20} className="min-w-[20px]" /> : <Sun size={20} className="min-w-[20px] text-amber-400" />}
+            {!isCollapsed && <span className="truncate animate-in fade-in duration-300 font-semibold">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>}
+          </button>
+        </div>
+
+        <div className={`p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl mb-4 transition-all ${isCollapsed ? 'bg-transparent dark:bg-transparent p-0' : ''}`}>
           <div className={`flex items-center gap-3 mb-3 ${isCollapsed ? 'justify-center mb-0' : ''}`}>
-            <img src={currentUser?.avatar} alt="Avatar" className="w-10 h-10 min-w-[40px] rounded-full border-2 border-white shadow-sm" />
+            <img src={currentUser?.avatar} alt="Avatar" className="w-10 h-10 min-w-[40px] rounded-full border-2 border-white dark:border-slate-700 shadow-sm" />
             {!isCollapsed && (
               <div className="flex-1 min-w-0 animate-in fade-in duration-300">
-                <p className="text-sm font-semibold text-slate-800 truncate">{currentUser?.name}</p>
+                <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{currentUser?.name}</p>
                 <div className="flex items-center gap-1">
                    <ShieldCheck size={12} className={currentUser?.role === UserRole.SUPER_ADMIN ? 'text-amber-500' : 'text-blue-500'} />
-                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                   <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                      {currentUser?.role === UserRole.SUPER_ADMIN ? 'Admin' : 'Agent'}
                    </p>
                 </div>
@@ -126,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed && (
             <button 
               onClick={() => setShowSelfReset(true)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all animate-in fade-in"
+              className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all animate-in fade-in"
             >
               <Key size={12} /> Security
             </button>
@@ -136,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button 
           onClick={logout}
           title={isCollapsed ? "Sign Out" : ""}
-          className={`w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors font-semibold ${isCollapsed ? 'justify-center' : ''}`}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors font-semibold ${isCollapsed ? 'justify-center' : ''}`}
         >
           <LogOut size={20} className="min-w-[20px]" />
           {!isCollapsed && <span className="animate-in fade-in">Sign Out</span>}
