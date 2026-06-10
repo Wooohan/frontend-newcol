@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 px-4 md:px-0 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">System Infrastructure</h2>
-          <p className="text-slate-500 text-sm mt-1">Provider: PostgreSQL • Protocol: REST + WebSocket</p>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">System Infrastructure</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Provider: PostgreSQL • Protocol: REST + WebSocket</p>
         </div>
       </div>
 
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
            </div>
 
            {/* Table Health Inspector */}
-           <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
+           <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Table Health Check</h4>
                 <button onClick={refreshMetadata} className="text-blue-500 hover:rotate-180 transition-transform duration-500">
@@ -146,9 +146,9 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
            </div>
 
            {/* Maintenance */}
-           <div className="bg-white p-8 rounded-[48px] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-6">
+           <div className="bg-white dark:bg-slate-900 p-8 rounded-[48px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center gap-6">
               <div className="flex-1">
-                <h4 className="font-black text-slate-800">Connection Verification</h4>
+                <h4 className="font-black text-slate-800 dark:text-white">Connection Verification</h4>
                 <p className="text-xs text-slate-400">Trigger a manual write to check database permissions.</p>
               </div>
               <button 
