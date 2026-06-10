@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
+import { UserRole } from './types';
 import Sidebar from './components/Sidebar';
 import DashboardView from './components/Dashboard/DashboardView';
 import InboxView from './components/Inbox/InboxView';
@@ -187,11 +188,27 @@ const PortalContent: React.FC = () => {
     initFacebookSDK().then(() => setIsSdkReady(true));
   }, []);
 
+  // Define which views are restricted to admin only
+  const adminOnlyViews = ['agents', 'pages', 'library'];
+
+  // If the current user is not an admin and the active view is admin-only,
+  // redirect them to the dashboard
+  useEffect(() => {
+    if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN && adminOnlyViews.includes(activeView)) {
+      setActiveView('dashboard');
+    }
+  }, [currentUser, activeView]);
+
   if (!currentUser) {
     return <LoginPage />;
   }
 
   const renderView = () => {
+    // Guard: prevent non-admin users from accessing admin-only views
+    if (currentUser.role !== UserRole.SUPER_ADMIN && adminOnlyViews.includes(activeView)) {
+      return <DashboardView />;
+    }
+
     switch (activeView) {
       case 'dashboard': return <DashboardView />;
       case 'inbox': return <InboxView />;
@@ -207,7 +224,14 @@ const PortalContent: React.FC = () => {
     <div className="flex min-h-screen bg-[#f8fafc]">
       <Sidebar 
         activeView={activeView} 
-        setActiveView={setActiveView} 
+        setActiveView={(view: string) => {
+          // Prevent non-admin users from navigating to admin-only views
+          if (currentUser.role !== UserRole.SUPER_ADMIN && adminOnlyViews.includes(view)) {
+            setActiveView('dashboard');
+            return;
+          }
+          setActiveView(view);
+        }} 
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
         isMobileOpen={isMobileOpen}
