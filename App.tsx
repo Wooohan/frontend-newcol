@@ -1,302 +1,260 @@
-import React, { useState } from 'react';
-import { UserPlus, Trash2, Key, X, CheckCircle2, Facebook, Save, Loader2 } from 'lucide-react';
-import { useApp } from '../../store/AppContext';
-import { UserRole, User, FacebookPage } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { AppProvider, useApp } from './store/AppContext';
+import Sidebar from './components/Sidebar';
+import DashboardView from './components/Dashboard/DashboardView';
+import InboxView from './components/Inbox/InboxView';
+import AgentManagement from './components/Admin/AgentManagement';
+import PageSettings from './components/Admin/PageSettings';
+import MediaLibrary from './components/Admin/MediaLibrary';
+import SettingsView from './components/Admin/SettingsView';
+import { initFacebookSDK } from './services/facebookService';
+import { Mail, Lock, Loader2, AlertCircle, MessageSquare, Bell, Menu, CloudOff, Cloud, Database, Copy, Check, Terminal, Download } from 'lucide-react';
 
-// Helper to safely get an array from a value that might be stored as a non-array type
-const safeArray = (val: any): string[] => {
-  if (Array.isArray(val)) return val;
-  if (typeof val === 'string') {
-    try {
-      const parsed = JSON.parse(val);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
-  }
-  return [];
-};
+const LoginPage: React.FC = () => {
+  const { login, dbStatus, dbError } = useApp();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-const AgentManagement: React.FC = () => {
-  const { agents, pages, addAgent, updateUser, removeAgent, currentUser, assignAgentToPage, unassignAgentFromPage } = useApp();
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [assigningAgent, setAssigningAgent] = useState<User | null>(null);
-  const [showResetModal, setShowResetModal] = useState<User | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<UserRole>(UserRole.AGENT);
+  const sqlSchema = `CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, name TEXT, email TEXT, password TEXT, role TEXT, avatar TEXT, status TEXT, "assignedPageIds" JSONB);
+CREATE TABLE IF NOT EXISTS pages (id TEXT PRIMARY KEY, name TEXT, category TEXT, "isConnected" BOOLEAN, "accessToken" TEXT, "assignedAgentIds" JSONB);
+CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, "pageId" TEXT, "customerId" TEXT, "customerName" TEXT, "customerAvatar" TEXT, "lastMessage" TEXT, "lastTimestamp" TEXT, status TEXT, "assignedAgentId" TEXT, "unreadCount" INTEGER);
+CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, "conversationId" TEXT, "senderId" TEXT, "senderName" TEXT, text TEXT, timestamp TEXT, "isIncoming" BOOLEAN, "isRead" BOOLEAN);
+CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, title TEXT, url TEXT, category TEXT);
+CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, title TEXT, url TEXT, type TEXT, "isLocal" BOOLEAN);
+CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, timestamp TEXT);`;
 
-  const [resetPassValue, setResetPassValue] = useState('');
-
-  // Derive assigned pages for each agent from the PAGES table (single source of truth)
-  // Instead of reading agent.assignedPageIds, we check which pages have this agent in their assignedAgentIds
-  const getAssignedPageIdsForAgent = (agentId: string): string[] => {
-    return pages
-      .filter(page => safeArray(page.assignedAgentIds).includes(agentId))
-      .map(page => page.id);
+  const copySql = () => {
+    navigator.clipboard.writeText(sqlSchema);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newEmail || !newPassword || isSubmitting) return;
-
-    setIsSubmitting(true);
-    const newAgent: User = {
-      id: `agent-${Date.now()}`,
-      name: newName,
-      email: newEmail,
-      password: newPassword,
-      role: newRole,
-      avatar: `https://picsum.photos/seed/${Math.random()}/200`,
-      status: 'offline',
-      assignedPageIds: [],
-    };
-
-    try {
-      await addAgent(newAgent);
-      setNewName(''); setNewEmail(''); setNewPassword('');
-      setShowInviteModal(false);
-    } catch (err) {
-      // Error will be caught and logged by AppContext/Debug Terminal
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showResetModal || !resetPassValue || isSubmitting) return;
+    setIsLoading(true);
+    setError(null);
     
-    setIsSubmitting(true);
-    try {
-      await updateUser(showResetModal.id, { password: resetPassValue });
-      setResetPassValue('');
-      setShowResetModal(null);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteAgent = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this agent? This action cannot be undone.")) {
-      await removeAgent(id);
-    }
-  };
-
-  const togglePageAssignment = async (pageId: string) => {
-    if (!assigningAgent || isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      // Derive current assigned pages from the pages table (single source of truth)
-      const currentPages = getAssignedPageIdsForAgent(assigningAgent.id);
-      if (currentPages.includes(pageId)) {
-        await unassignAgentFromPage(assigningAgent.id, pageId);
-      } else {
-        await assignAgentToPage(assigningAgent.id, pageId);
-      }
-      // Force re-render by updating assigningAgent reference (pages state will update via context)
-      setAssigningAgent({ ...assigningAgent });
-    } finally {
-      setIsSubmitting(false);
+    const success = await login(email, password);
+    if (!success) {
+      setError('Invalid email or password. Use your authorized credentials.');
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Agent Control Center</h2>
-          <p className="text-slate-500 text-sm mt-1">Assign agents to specific Facebook Pages and manage credentials.</p>
-        </div>
-        <button 
-          onClick={() => setShowInviteModal(true)}
-          className="flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl"
-        >
-          <UserPlus size={20} /> Add New Agent
-        </button>
-      </div>
-
-      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[800px]">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-100">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Agent</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Page Access</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Manage</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {agents.map((agent) => (
-                <tr key={agent.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-8 py-6">
-                    <div className="flex items-center gap-4">
-                      <img src={agent.avatar} className="w-12 h-12 rounded-2xl object-cover shadow-sm" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">{agent.name}</p>
-                        <p className="text-xs text-slate-400 font-medium">{agent.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-6">
-                     <button 
-                        onClick={() => setAssigningAgent(agent)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase hover:bg-blue-100 transition-all"
-                     >
-                       <Facebook size={14} />
-                       {getAssignedPageIdsForAgent(agent.id).length} Pages Assigned
-                     </button>
-                  </td>
-                  <td className="px-8 py-6">
-                    <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${
-                      agent.status === 'online' ? 'text-green-600 bg-green-50' : 'text-slate-400 bg-slate-50'
-                    }`}>
-                      {agent.status.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-8 py-6">
-                     <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => setShowResetModal(agent)}
-                          className="p-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-xl transition-all"
-                          title="Reset Password"
-                        >
-                           <Key size={18} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteAgent(agent.id)}
-                          disabled={agent.id === currentUser?.id}
-                          className={`p-2.5 rounded-xl transition-all ${agent.id === currentUser?.id ? 'opacity-20 cursor-not-allowed' : 'hover:bg-red-50 hover:text-red-500 text-slate-400'}`}
-                          title="Delete Agent"
-                        >
-                           <Trash2 size={18} />
-                        </button>
-                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Password Reset Modal */}
-      {showResetModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 animate-in zoom-in-95">
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-2xl font-bold text-slate-800">Reset Credentials</h3>
-                 <button onClick={() => setShowResetModal(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full"><X size={24} /></button>
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100 via-slate-50 to-indigo-50">
+      
+      {dbStatus === 'uninitialized' && (
+        <div className="w-full max-w-2xl mb-8 animate-in slide-in-from-top-4 duration-500">
+          <div className="bg-slate-900 rounded-[40px] p-8 md:p-10 text-white shadow-2xl border border-slate-800 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:rotate-12 transition-transform">
+              <Database size={120} />
+            </div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-4">
+                 <div className="p-2 bg-amber-500 text-slate-900 rounded-lg">
+                   <AlertCircle size={20} />
+                 </div>
+                 <h2 className="text-xl font-black uppercase tracking-widest">Database Setup Required</h2>
               </div>
-              <p className="text-slate-500 text-sm mb-8 leading-relaxed">Assign a new secure password for <span className="font-bold text-slate-800">{showResetModal.name}</span>.</p>
-              <form onSubmit={handleResetPassword} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    autoFocus
-                    value={resetPassValue}
-                    onChange={e => setResetPassValue(e.target.value)}
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-amber-600 text-white rounded-2xl font-bold shadow-xl hover:bg-amber-700 transition-all flex items-center justify-center gap-2">
-                  {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-                  Commit Reset
-                </button>
-              </form>
-           </div>
-        </div>
-      )}
-
-      {/* Page Assignment Modal */}
-      {assigningAgent && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-md p-10 animate-in zoom-in-95">
-              <div className="flex justify-between items-center mb-6">
-                 <div>
-                   <h3 className="text-2xl font-bold text-slate-800">Page Assignment</h3>
-                   <p className="text-sm text-slate-500">Enable page access for <span className="font-bold">{assigningAgent.name}</span></p>
-                 </div>
-                 <button onClick={() => setAssigningAgent(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-full"><X size={24} /></button>
-              </div>
-
-              <div className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
-                {pages.length > 0 ? (
-                  pages.map(page => {
-                    const isAssigned = safeArray(page.assignedAgentIds).includes(assigningAgent.id);
-                    return (
-                      <button 
-                        key={page.id}
-                        disabled={isSubmitting}
-                        onClick={() => togglePageAssignment(page.id)}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                          isAssigned
-                            ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-50' 
-                            : 'bg-white border-slate-100 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
-                              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Facebook size={20} />}
-                            </div>
-                            <div className="text-left">
-                              <p className="text-sm font-bold text-slate-800">{page.name}</p>
-                              <p className="text-[10px] text-slate-400 uppercase font-black">{page.category}</p>
-                            </div>
-                        </div>
-                        {isAssigned && <CheckCircle2 className="text-blue-600" size={20} />}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-8 text-slate-400 italic text-sm">No pages connected.</div>
-                )}
-              </div>
-
-              <button 
-                onClick={() => setAssigningAgent(null)}
-                className="w-full mt-8 py-5 bg-blue-600 text-white rounded-2xl font-bold shadow-xl hover:bg-blue-700 transition-all"
-              >
-                Save Permissions
-              </button>
-           </div>
-        </div>
-      )}
-
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg p-10 animate-in zoom-in-95">
-              <h3 className="text-2xl font-bold text-slate-800 mb-8">Register New Agent</h3>
-              <form onSubmit={handleInvite} className="space-y-6">
-                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Agent Name</label>
-                   <input type="text" required value={newName} onChange={e => setNewName(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-500" />
-                 </div>
-                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Agent Email</label>
-                   <input type="email" required value={newEmail} onChange={e => setNewEmail(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-500" />
-                 </div>
-                 <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Initial Password</label>
-                   <input type="password" required value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-500" />
-                 </div>
-                 <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
-                    {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <UserPlus size={20} />}
-                    {isSubmitting ? 'Writing to Atlas...' : 'Complete Registration'}
+              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                Database connection is active, but your tables are missing. Run the schema SQL in your PostgreSQL database to initialize:
+              </p>
+              <div className="bg-black/40 backdrop-blur-md rounded-2xl p-6 font-mono text-[10px] text-blue-200 border border-white/5 relative group/code">
+                 <pre className="whitespace-pre-wrap break-all h-24 overflow-y-auto custom-scrollbar">{sqlSchema}</pre>
+                 <button 
+                  onClick={copySql}
+                  className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all"
+                 >
+                   {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
                  </button>
-                 <button type="button" onClick={() => setShowInviteModal(false)} className="w-full text-slate-400 font-bold text-xs py-2">Cancel</button>
-              </form>
-           </div>
+              </div>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 transition-all"
+              >
+                <Cloud size={14} /> I've run the script, reload portal
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+      <div className="bg-white p-8 md:p-12 rounded-[40px] md:rounded-[48px] shadow-2xl shadow-blue-200/50 max-w-md w-full border border-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+        
+        <div className="relative z-10 text-center">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-8 shadow-xl shadow-blue-200 ring-4 ring-blue-50">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+          </div>
+          
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-2 animate-in fade-in slide-in-from-top-2">Portal Access</h1>
+          <p className="text-slate-500 mb-8 md:mb-10 font-medium">Log in to your agent workspace</p>
+
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 text-left">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+              <div className="relative group">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                <input 
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                  placeholder="agent@company.com"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                <input 
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            {(error || (dbStatus === 'error' && dbError)) && (
+              <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-bold animate-in shake duration-300">
+                <AlertCircle size={16} />
+                {error || dbError}
+              </div>
+            )}
+
+            <button 
+              type="submit"
+              disabled={isLoading || dbStatus === 'uninitialized' || dbStatus === 'syncing'}
+              className="w-full py-4 md:py-5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 flex items-center justify-center gap-3 transform active:scale-[0.98] disabled:opacity-70"
+            >
+              {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Sign In to Portal'}
+            </button>
+          </form>
+
+          <div className="mt-8 flex flex-col items-center justify-center gap-3">
+            <div className="flex items-center gap-2">
+              {dbStatus === 'error' ? (
+                <div className="flex items-center gap-1.5 text-[9px] font-black text-amber-500 uppercase tracking-widest px-3 py-1 bg-amber-50 rounded-full border border-amber-100">
+                  <CloudOff size={10} /> Local Access Mode
+                </div>
+              ) : dbStatus === 'connected' ? (
+                <div className="flex items-center gap-1.5 text-[9px] font-black text-emerald-500 uppercase tracking-widest px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100">
+                  <Cloud size={10} /> Server Connected
+                </div>
+              ) : dbStatus === 'uninitialized' ? (
+                <div className="flex items-center gap-1.5 text-[9px] font-black text-rose-500 uppercase tracking-widest px-3 py-1 bg-rose-50 rounded-full border border-rose-100">
+                  <Terminal size={10} /> Schema Missing
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest px-3 py-1">
+                  <Loader2 size={10} className="animate-spin" /> Verifying Cloud...
+                </div>
+              )}
+            </div>
+            
+            <a 
+              href="/messengerflow-realtime.tar.gz" 
+              download
+              className="flex items-center gap-2 text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 transition-all"
+            >
+              <Download size={12} /> Download Complete Project
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default AgentManagement;
+const PortalContent: React.FC = () => {
+  const [activeView, setActiveView] = useState('dashboard');
+  const [isSdkReady, setIsSdkReady] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { currentUser } = useApp();
+
+  useEffect(() => {
+    initFacebookSDK().then(() => setIsSdkReady(true));
+  }, []);
+
+  if (!currentUser) {
+    return <LoginPage />;
+  }
+
+  const renderView = () => {
+    switch (activeView) {
+      case 'dashboard': return <DashboardView />;
+      case 'inbox': return <InboxView />;
+      case 'agents': return <AgentManagement />;
+      case 'pages': return <PageSettings />;
+      case 'library': return <MediaLibrary />;
+      case 'settings': return <SettingsView />;
+      default: return <DashboardView />;
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-[#f8fafc]">
+      <Sidebar 
+        activeView={activeView} 
+        setActiveView={setActiveView} 
+        isCollapsed={isCollapsed}
+        setIsCollapsed={setIsCollapsed}
+        isMobileOpen={isMobileOpen}
+        setIsMobileOpen={setIsMobileOpen}
+      />
+      
+      <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+        <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 sticky top-0 z-40">
+           <button onClick={() => setIsMobileOpen(true)} className="p-2 text-slate-600 hover:bg-slate-50 rounded-xl">
+             <Menu size={24} />
+           </button>
+           <div className="flex items-center gap-2">
+             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+               <MessageSquare size={18} />
+             </div>
+             <span className="font-bold text-lg text-slate-800">Flow</span>
+           </div>
+           <button className="p-2 text-slate-400">
+             <Bell size={20} />
+           </button>
+        </header>
+
+        <div className="p-4 md:p-8 flex-1">
+          {!isSdkReady && (
+            <div className="mb-6 p-3 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl text-center border border-amber-100">
+              Initializing Facebook Engine...
+            </div>
+          )}
+          <div className="max-w-[1600px] mx-auto">
+            {renderView()}
+          </div>
+        </div>
+        
+        <footer className="px-8 py-6 text-[10px] text-slate-400 font-medium uppercase tracking-widest text-center border-t border-slate-100 bg-white/50">
+          MessengerFlow SaaS v2.0.0 • Real-Time Edition Active
+        </footer>
+      </main>
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AppProvider>
+      <PortalContent />
+    </AppProvider>
+  );
+};
+
+export default App;
