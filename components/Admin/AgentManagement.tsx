@@ -106,36 +106,36 @@ const AgentManagement: React.FC = () => {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Agent Control Center</h2>
-          <p className="text-slate-500 text-sm mt-1">Assign agents to specific Facebook Pages and manage credentials.</p>
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">Agent Control Center</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Assign agents to specific Facebook Pages and manage credentials.</p>
         </div>
         <button 
           onClick={() => setShowInviteModal(true)}
-          className="flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl"
+          className="flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/30 dark:shadow-blue-900/40"
         >
           <UserPlus size={20} /> Add New Agent
         </button>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left min-w-[800px]">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-100">
+              <tr className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Agent</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Page Access</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Manage</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {agents.map((agent) => (
-                <tr key={agent.id} className="hover:bg-slate-50/50 transition-colors group">
+                <tr key={agent.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
                       <img src={agent.avatar} className="w-12 h-12 rounded-2xl object-cover shadow-sm" />
                       <div>
-                        <p className="text-sm font-bold text-slate-800">{agent.name}</p>
+                        <p className="text-sm font-bold text-slate-800 dark:text-white">{agent.name}</p>
                         <p className="text-xs text-slate-400 font-medium">{agent.email}</p>
                       </div>
                     </div>
