@@ -331,14 +331,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (agent) await apiService.put('agents', agent);
     },
     assignAgentToPage: async (agentId: string, pageId: string) => {
-      // Helper to safely get an array
+      // Single source of truth: pages.assignedAgentIds only
       const safeArr = (val: any): string[] => {
         if (Array.isArray(val)) return val;
         if (typeof val === 'string') { try { const p = JSON.parse(val); if (Array.isArray(p)) return p; } catch {} }
         return [];
       };
 
-      // 1. Update the page's assignedAgentIds
       const page = pages.find((p) => p.id === pageId);
       if (page) {
         const currentAgentIds = safeArr(page.assignedAgentIds);
@@ -350,28 +349,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (updatedPage) await apiService.put('pages', updatedPage);
         }
       }
-
-      // 2. Update the agent's assignedPageIds
-      const agent = agents.find((a) => a.id === agentId);
-      if (agent) {
-        const currentPageIds = safeArr(agent.assignedPageIds);
-        if (!currentPageIds.includes(pageId)) {
-          const newPageIds = [...currentPageIds, pageId];
-          const updatedAgents = agents.map((a) => (a.id === agentId ? { ...a, assignedPageIds: newPageIds } : a));
-          setAgents(updatedAgents);
-          const updatedAgent = updatedAgents.find((a) => a.id === agentId);
-          if (updatedAgent) await apiService.put('agents', updatedAgent);
-        }
-      }
     },
     unassignAgentFromPage: async (agentId: string, pageId: string) => {
+      // Single source of truth: pages.assignedAgentIds only
       const safeArr = (val: any): string[] => {
         if (Array.isArray(val)) return val;
         if (typeof val === 'string') { try { const p = JSON.parse(val); if (Array.isArray(p)) return p; } catch {} }
         return [];
       };
 
-      // 1. Remove agent from page's assignedAgentIds
       const page = pages.find((p) => p.id === pageId);
       if (page) {
         const currentAgentIds = safeArr(page.assignedAgentIds);
@@ -381,19 +367,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setPages(updatedPages);
           const updatedPage = updatedPages.find((p) => p.id === pageId);
           if (updatedPage) await apiService.put('pages', updatedPage);
-        }
-      }
-
-      // 2. Remove page from agent's assignedPageIds
-      const agent = agents.find((a) => a.id === agentId);
-      if (agent) {
-        const currentPageIds = safeArr(agent.assignedPageIds);
-        if (currentPageIds.includes(pageId)) {
-          const newPageIds = currentPageIds.filter((id) => id !== pageId);
-          const updatedAgents = agents.map((a) => (a.id === agentId ? { ...a, assignedPageIds: newPageIds } : a));
-          setAgents(updatedAgents);
-          const updatedAgent = updatedAgents.find((a) => a.id === agentId);
-          if (updatedAgent) await apiService.put('agents', updatedAgent);
         }
       }
     },
