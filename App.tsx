@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100 via-slate-50 to-indigo-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100 via-slate-50 to-indigo-50 dark:from-slate-900 dark:via-slate-950 dark:to-blue-950">
       
       {dbStatus === 'uninitialized' && (
         <div className="w-full max-w-2xl mb-8 animate-in slide-in-from-top-4 duration-500">
@@ -84,16 +84,16 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
         </div>
       )}
 
-      <div className="bg-white p-8 md:p-12 rounded-[40px] md:rounded-[48px] shadow-2xl shadow-blue-200/50 max-w-md w-full border border-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+      <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[40px] md:rounded-[48px] shadow-2xl shadow-blue-200/50 dark:shadow-none max-w-md w-full border border-white dark:border-slate-800 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 dark:bg-blue-600/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
         
         <div className="relative z-10 text-center">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-8 shadow-xl shadow-blue-200 ring-4 ring-blue-50">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-8 shadow-xl shadow-blue-600/30 dark:shadow-blue-900/40 ring-4 ring-blue-50 dark:ring-blue-900/30">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
           </div>
           
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-2 animate-in fade-in slide-in-from-top-2">Portal Access</h1>
-          <p className="text-slate-500 mb-8 md:mb-10 font-medium">Log in to your agent workspace</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2 animate-in fade-in slide-in-from-top-2">Portal Access</h1>
+          <p className="text-slate-500 dark:text-slate-400 mb-8 md:mb-10 font-medium">Log in to your agent workspace</p>
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 text-left">
             <div className="space-y-2">
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-blue-50 dark:focus:ring-blue-900/30 focus:border-blue-500 outline-none transition-all font-medium text-slate-700 dark:text-slate-200"
                   placeholder="agent@company.com"
                 />
               </div>
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-blue-50 dark:focus:ring-blue-900/30 focus:border-blue-500 outline-none transition-all font-medium text-slate-700 dark:text-slate-200"
                   placeholder="••••••••"
                 />
               </div>
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS provisioning_logs (id TEXT PRIMARY KEY, status TEXT, 
             <button 
               type="submit"
               disabled={isLoading || dbStatus === 'uninitialized' || dbStatus === 'syncing'}
-              className="w-full py-4 md:py-5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 flex items-center justify-center gap-3 transform active:scale-[0.98] disabled:opacity-70"
+              className="w-full py-4 md:py-5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/30 dark:shadow-blue-900/40 flex items-center justify-center gap-3 transform active:scale-[0.98] disabled:opacity-70"
             >
               {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Sign In to Portal'}
             </button>
@@ -221,7 +221,7 @@ const PortalContent: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f8fafc]">
+    <div className="flex min-h-screen bg-[#f8fafc] dark:bg-slate-950">
       <Sidebar 
         activeView={activeView} 
         setActiveView={(view: string) => {
@@ -239,15 +239,15 @@ const PortalContent: React.FC = () => {
       />
       
       <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-        <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 sticky top-0 z-40">
-           <button onClick={() => setIsMobileOpen(true)} className="p-2 text-slate-600 hover:bg-slate-50 rounded-xl">
+        <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40">
+           <button onClick={() => setIsMobileOpen(true)} className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl">
              <Menu size={24} />
            </button>
            <div className="flex items-center gap-2">
              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
                <MessageSquare size={18} />
              </div>
-             <span className="font-bold text-lg text-slate-800">Flow</span>
+             <span className="font-bold text-lg text-slate-800 dark:text-white">Flow</span>
            </div>
            <button className="p-2 text-slate-400">
              <Bell size={20} />
@@ -256,7 +256,7 @@ const PortalContent: React.FC = () => {
 
         <div className="p-4 md:p-8 flex-1">
           {!isSdkReady && (
-            <div className="mb-6 p-3 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl text-center border border-amber-100">
+            <div className="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl text-center border border-amber-100 dark:border-amber-800">
               Initializing Facebook Engine...
             </div>
           )}
@@ -265,7 +265,7 @@ const PortalContent: React.FC = () => {
           </div>
         </div>
         
-        <footer className="px-8 py-6 text-[10px] text-slate-400 font-medium uppercase tracking-widest text-center border-t border-slate-100 bg-white/50">
+        <footer className="px-8 py-6 text-[10px] text-slate-400 font-medium uppercase tracking-widest text-center border-t border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
           MessengerFlow SaaS v2.0.0 • Real-Time Edition Active
         </footer>
       </main>
