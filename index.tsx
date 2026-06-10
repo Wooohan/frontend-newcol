@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import LegalPage from './components/Legal/LegalPage';
+import { ThemeProvider } from './store/ThemeContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -17,6 +18,8 @@ const isLegalRoute = currentPath === LEGAL_PATH;
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    {isLegalRoute ? <LegalPage /> : <App />}
+    <ThemeProvider>
+      {isLegalRoute ? <LegalPage /> : <App />}
+    </ThemeProvider>
   </React.StrictMode>
 );
