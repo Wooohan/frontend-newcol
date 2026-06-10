@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserPlus, Shield, Mail, Activity, Trash2, Key, X, LayoutGrid, CheckCircle2, ChevronRight, Facebook, AlertTriangle, Save, Loader2 } from 'lucide-react';
+import { UserPlus, Trash2, Key, X, CheckCircle2, Facebook, Save, Loader2 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { UserRole, User, FacebookPage } from '../../types';
 
@@ -28,6 +28,14 @@ const AgentManagement: React.FC = () => {
   const [newRole, setNewRole] = useState<UserRole>(UserRole.AGENT);
 
   const [resetPassValue, setResetPassValue] = useState('');
+
+  // Derive assigned pages for each agent from the PAGES table (single source of truth)
+  // Instead of reading agent.assignedPageIds, we check which pages have this agent in their assignedAgentIds
+  const getAssignedPageIdsForAgent = (agentId: string): string[] => {
+    return pages
+      .filter(page => safeArray(page.assignedAgentIds).includes(agentId))
+      .map(page => page.id);
+  };
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,18 +88,15 @@ const AgentManagement: React.FC = () => {
     if (!assigningAgent || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const currentPages = safeArray(assigningAgent.assignedPageIds);
+      // Derive current assigned pages from the pages table (single source of truth)
+      const currentPages = getAssignedPageIdsForAgent(assigningAgent.id);
       if (currentPages.includes(pageId)) {
         await unassignAgentFromPage(assigningAgent.id, pageId);
-        // Update local modal state immediately with expected result
-        const newPages = currentPages.filter(id => id !== pageId);
-        setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
       } else {
         await assignAgentToPage(assigningAgent.id, pageId);
-        // Update local modal state immediately with expected result
-        const newPages = [...currentPages, pageId];
-        setAssigningAgent({ ...assigningAgent, assignedPageIds: newPages });
       }
+      // Force re-render by updating assigningAgent reference (pages state will update via context)
+      setAssigningAgent({ ...assigningAgent });
     } finally {
       setIsSubmitting(false);
     }
@@ -141,7 +146,7 @@ const AgentManagement: React.FC = () => {
                         className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase hover:bg-blue-100 transition-all"
                      >
                        <Facebook size={14} />
-                       {safeArray(agent.assignedPageIds).length || 0} Pages Assigned
+                       {getAssignedPageIdsForAgent(agent.id).length} Pages Assigned
                      </button>
                   </td>
                   <td className="px-8 py-6">
@@ -222,29 +227,32 @@ const AgentManagement: React.FC = () => {
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
                 {pages.length > 0 ? (
-                  pages.map(page => (
-                    <button 
-                      key={page.id}
-                      disabled={isSubmitting}
-                      onClick={() => togglePageAssignment(page.id)}
-                      className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                        safeArray(assigningAgent.assignedPageIds).includes(page.id)
-                          ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-50' 
-                          : 'bg-white border-slate-100 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
-                            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Facebook size={20} />}
-                          </div>
-                          <div className="text-left">
-                            <p className="text-sm font-bold text-slate-800">{page.name}</p>
-                            <p className="text-[10px] text-slate-400 uppercase font-black">{page.category}</p>
-                          </div>
-                      </div>
-                      {safeArray(assigningAgent.assignedPageIds).includes(page.id) && <CheckCircle2 className="text-blue-600" size={20} />}
-                    </button>
-                  ))
+                  pages.map(page => {
+                    const isAssigned = safeArray(page.assignedAgentIds).includes(assigningAgent.id);
+                    return (
+                      <button 
+                        key={page.id}
+                        disabled={isSubmitting}
+                        onClick={() => togglePageAssignment(page.id)}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                          isAssigned
+                            ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-50' 
+                            : 'bg-white border-slate-100 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Facebook size={20} />}
+                            </div>
+                            <div className="text-left">
+                              <p className="text-sm font-bold text-slate-800">{page.name}</p>
+                              <p className="text-[10px] text-slate-400 uppercase font-black">{page.category}</p>
+                            </div>
+                        </div>
+                        {isAssigned && <CheckCircle2 className="text-blue-600" size={20} />}
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="text-center py-8 text-slate-400 italic text-sm">No pages connected.</div>
                 )}
