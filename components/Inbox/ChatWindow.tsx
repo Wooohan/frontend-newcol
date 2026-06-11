@@ -293,45 +293,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
         )}
 
         {chatMessages.map((msg) => {
-          // Robust image detection for both sent (base64) and received (Meta URLs)
-          const text = (msg.text || '').trim();
-          
-          // Regex to extract base64 or URL even if there's other text
-          const base64Regex = /data:image\/[a-zA-Z]*;base64,[^\s"']*/;
-          const urlRegex = /https?:\/\/[^\s"']+(?:\.(?:jpeg|jpg|gif|png|webp|svg)|scontent|fbcdn\.net|attachment_id|lookaside)[^\s"']*/i;
-          
-          const base64Match = text.match(base64Regex);
-          const urlMatch = text.match(urlRegex);
-          
-          const imageUrl = base64Match ? base64Match[0] : (urlMatch ? urlMatch[0] : null);
-          const isImage = !!imageUrl;
+          const isBase64Image = msg.text?.includes('data:image');
+          const isUrlImage = msg.text?.startsWith('http') && 
+                             (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)$/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn.net'));
 
           return (
             <div key={msg.id} className={`flex ${msg.isIncoming ? 'justify-start' : 'justify-end'} animate-in slide-in-from-bottom-2 duration-300`}>
               <div className={`flex flex-col space-y-1 max-w-[75%] ${msg.isIncoming ? 'items-start' : 'items-end'}`}>
-                <div className={`rounded-2xl shadow-sm ${
+                <div className={`px-4 py-3 rounded-2xl shadow-sm ${
                   msg.isIncoming 
                     ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none' 
                     : 'bg-blue-600 text-white rounded-tr-none'
-                } ${isImage ? 'p-1 overflow-hidden min-w-[120px]' : 'px-4 py-3'}`}>
-                  {isImage ? (
-                    <div className="relative group/img">
+                }`}>
+                  {isBase64Image || isUrlImage ? (
+                    <div className="space-y-2">
                       <img 
-                        src={imageUrl} 
+                        src={msg.text} 
                         alt="Attachment" 
-                        className="rounded-xl max-w-full h-auto block cursor-pointer hover:opacity-95 transition-opacity bg-slate-100 dark:bg-slate-700" 
-                        style={{ minHeight: '60px' }}
-                        onClick={() => window.open(imageUrl, '_blank')}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = target.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'block';
-                        }}
+                        className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" 
+                        onClick={() => window.open(msg.text, '_blank')} 
                       />
-                      <div className="hidden p-3 text-[13px] opacity-60 break-all italic">
-                        {text}
-                      </div>
                     </div>
                   ) : (
                     <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
