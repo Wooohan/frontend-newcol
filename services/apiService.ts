@@ -68,6 +68,23 @@ class APIService {
     return result;
   }
 
+  async markConversationAsRead(conversationId: string): Promise<any> {
+    const url = API_BASE 
+      ? `${API_BASE}/api/conversations/${conversationId}/mark-read`
+      : `/api/conversations/${conversationId}/mark-read`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to mark conversation as read: ${response.statusText}`);
+    }
+    
+    return response.json();
+  }
+
   setDatabase(_name: string) {}
   getDatabaseName() { return 'PostgreSQL'; }
 
