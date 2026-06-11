@@ -418,11 +418,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
               msg.isIncoming
                 ? 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
                 : 'bg-blue-600 text-white shadow-blue-100 rounded-br-none'
-            } ${msg.text?.startsWith('data:image') || (msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)$/) || msg.text?.includes('attachment_id'))) ? 'p-1' : 'p-3 md:p-4'}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', hyphens: 'auto' }}>
+            } ${msg.text?.startsWith('data:image') || (msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn') || msg.text?.includes('fbsbx') || msg.text?.includes('lookaside') || msg.text?.includes('attachment_id'))) ? 'p-1' : 'p-3 md:p-4'}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', hyphens: 'auto' }}>
               {msg.text?.includes('data:image') ? (
-                <img src={msg.text.match(/data:image\/[a-zA-Z]*;base64,[^\s]*/)?.[0] || msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(msg.text, '_blank')} />
-              ) : msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)$/) || msg.text?.includes('scontent')) ? (
-                <img src={msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(msg.text, '_blank')} />
+                <img src={msg.text.match(/data:image\/[a-zA-Z+]*;base64,[^\s]*/)?.[0] || msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" referrerPolicy="no-referrer" onClick={() => window.open(msg.text, '_blank')} />
+              ) : msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn') || msg.text?.includes('fbsbx') || msg.text?.includes('lookaside') || msg.text?.includes('attachment_id')) ? (
+                <img src={msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" referrerPolicy="no-referrer" onClick={() => window.open(msg.text, '_blank')} />
               ) : (
                 msg.text
               )}
