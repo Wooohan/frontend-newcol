@@ -3,7 +3,7 @@ import { Send, X, Link as LinkIcon, Image as ImageIcon, Library, AlertCircle, Ch
 import { Conversation, Message, ApprovedLink, ApprovedMedia, UserRole, ConversationStatus } from '../../types';
 import { useApp } from '../../store/AppContext';
 import { apiService } from '../../services/apiService';
-import { fetchThreadMessages } from '../../services/facebookService';
+import { fetchThreadMessages, sendPageMessageWithImage } from '../../services/facebookService';
 
 interface ChatWindowProps {
   conversation: Conversation;
@@ -152,15 +152,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
     const currentPage = pages.find(p => p.id === conversation.pageId);
     
     try {
-      await apiService.sendMessage({
-        conversationId: conversation.id,
-        text: textToSubmit,
-        senderId: currentUser?.id || 'agent',
-        senderName: currentUser?.name || 'Agent',
-        customerId: conversation.customerId,
-        pageAccessToken: currentPage?.accessToken || '',
-        isWindowExpired
-      });
+      // Check if the text is a base64 image
+      if (textToSubmit.includes('data:image')) {
+        // Send image directly to Meta via frontend API
+        await sendPageMessageWithImage(
+          conversation.customerId,
+          textToSubmit,
+          currentPage?.accessToken || '',
+          isWindowExpired ? 'HUMAN_AGENT' : undefined
+        );
+      } else {
+        // Send text message via backend
+        await apiService.sendMessage({
+          conversationId: conversation.id,
+          text: textToSubmit,
+          senderId: currentUser?.id || 'agent',
+          senderName: currentUser?.name || 'Agent',
+          customerId: conversation.customerId,
+          pageAccessToken: currentPage?.accessToken || '',
+          isWindowExpired
+        });
+      }
       
       if (!forcedText) setInputText('');
     } catch (err: any) {
