@@ -4,6 +4,20 @@ import { useApp } from '../../store/AppContext';
 import { Conversation, ConversationStatus, UserRole } from '../../types';
 import ChatWindow from './ChatWindow';
 
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-rose-500',
+  'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-pink-500',
+  'bg-teal-500', 'bg-orange-500', 'bg-violet-500', 'bg-lime-600',
+];
+
+const getAvatarColor = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }> = ({ conversation, className }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -29,8 +43,10 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
     );
   }
 
+  const colorClass = getAvatarColor(conversation.customerName);
+
   return (
-    <div className={`${className} bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs uppercase overflow-hidden`}>
+    <div className={`${className} ${colorClass} flex items-center justify-center text-white font-bold text-base uppercase overflow-hidden`}>
       {conversation.customerName.charAt(0)}
     </div>
   );
