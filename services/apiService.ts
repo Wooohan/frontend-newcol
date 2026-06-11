@@ -51,6 +51,7 @@ class APIService {
     customerId: string;
     pageAccessToken: string;
     isWindowExpired: boolean;
+    isImage?: boolean;
   }) {
     const url = API_BASE ? `${API_BASE}/api/send-message` : '/api/send-message';
     const response = await fetch(url, {
