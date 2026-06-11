@@ -3,7 +3,7 @@ import { Send, X, Link as LinkIcon, Image as ImageIcon, Library, AlertCircle, Ch
 import { Conversation, Message, ApprovedLink, ApprovedMedia, UserRole, ConversationStatus } from '../../types';
 import { useApp } from '../../store/AppContext';
 import { apiService } from '../../services/apiService';
-import { fetchThreadMessages } from '../../services/facebookService';
+import { fetchThreadMessages, sendPageMessageWithImage } from '../../services/facebookService';
 
 interface ChatWindowProps {
   conversation: Conversation;
@@ -194,22 +194,53 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
     if (!forcedText) setInputText('');
 
     try {
-      // Send via backend — backend handles FB API call + DB store + Socket.IO emit.
       const isImageMessage = isImage || textToSubmit.startsWith('data:image');
-      const result = await apiService.sendMessage({
-        conversationId: conversation.id,
-        text: textToSubmit,
-        senderId: currentUser?.id || 'agent',
-        senderName: currentUser?.name || 'Agent',
-        customerId: conversation.customerId,
-        pageAccessToken: currentPage.accessToken,
-        isWindowExpired,
-        isImage: isImageMessage,
-      });
 
-      // Add message to local state as fallback (dedup handles if socket event arrives too)
-      if (result.message) {
-        bulkAddMessages([result.message], true);
+      if (isImageMessage) {
+        // Send image directly via Facebook Graph API (FormData upload)
+        const tag = isWindowExpired ? 'HUMAN_AGENT' : undefined;
+        await sendPageMessageWithImage(
+          conversation.customerId,
+          textToSubmit,
+          currentPage.accessToken,
+          tag
+        );
+
+        // Store message locally and in DB
+        const newMsg: Message = {
+          id: `img_${Date.now()}`,
+          conversationId: conversation.id,
+          text: textToSubmit,
+          isIncoming: false,
+          timestamp: new Date().toISOString(),
+          senderId: currentUser?.id || 'agent',
+          senderName: currentUser?.name || 'Agent',
+        };
+        bulkAddMessages([newMsg], true);
+
+        // Persist to backend DB
+        try {
+          await apiService.put('messages', newMsg);
+        } catch (e) {
+          console.warn('Failed to persist image message to DB:', e);
+        }
+      } else {
+        // Send text via backend — backend handles FB API call + DB store + Socket.IO emit.
+        const result = await apiService.sendMessage({
+          conversationId: conversation.id,
+          text: textToSubmit,
+          senderId: currentUser?.id || 'agent',
+          senderName: currentUser?.name || 'Agent',
+          customerId: conversation.customerId,
+          pageAccessToken: currentPage.accessToken,
+          isWindowExpired,
+          isImage: false,
+        });
+
+        // Add message to local state as fallback (dedup handles if socket event arrives too)
+        if (result.message) {
+          bulkAddMessages([result.message], true);
+        }
       }
 
       setShowLibrary(false);
