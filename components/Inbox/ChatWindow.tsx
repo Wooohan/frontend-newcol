@@ -141,6 +141,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
     }
   }, [chatMessages]);
 
+  // Mark conversation as read when opened
+  useEffect(() => {
+    const markAsRead = async () => {
+      try {
+        await apiService.markConversationAsRead(conversation.id);
+      } catch (error) {
+        console.warn('Failed to mark conversation as read:', error);
+      }
+    };
+    
+    markAsRead();
+  }, [conversation.id]);
+
   const validateMessageContent = (text: string): boolean => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = text.match(urlRegex) || [];
