@@ -1,4 +1,3 @@
-
 import { FacebookPage, Conversation, Message, ConversationStatus } from '../types';
 
 const FB_APP_ID: string = (import.meta as any).env?.VITE_FB_APP_ID || '2790618864643960';
@@ -84,7 +83,7 @@ export const fetchUserPages = async (): Promise<FacebookPage[]> => {
 
   // Try to exchange for long-lived (permanent) page tokens via backend
   const exchangeUrl = API_BASE ? `${API_BASE}/api/fb/exchange-token` : '/api/fb/exchange-token';
-
+  
   try {
     const response = await fetch(exchangeUrl, {
       method: 'POST',
@@ -95,7 +94,6 @@ export const fetchUserPages = async (): Promise<FacebookPage[]> => {
     if (response.ok) {
       const data = await response.json();
       console.log('[FB] Token exchange successful — page tokens are now permanent.');
-
       const pages: FacebookPage[] = (data.pages || []).map((p: any) => ({
         id: p.id,
         name: p.name,
@@ -106,7 +104,7 @@ export const fetchUserPages = async (): Promise<FacebookPage[]> => {
       }));
       return pages;
     }
-
+    
     // If exchange endpoint fails (e.g. no APP_SECRET configured), fall back to short-lived tokens
     const errorData = await response.json().catch(() => ({}));
     console.warn('[FB] Token exchange failed, falling back to short-lived tokens:', errorData.error || response.statusText);
@@ -197,24 +195,34 @@ export const fetchPageConversations = async (
 };
 
 export const fetchThreadMessages = async (conversationId: string, pageId: string, pageAccessToken: string, since?: number): Promise<Message[]> => {
-  let url = `https://graph.facebook.com/v22.0/${conversationId}/messages?fields=id,message,created_time,from&access_token=${pageAccessToken}`;
+  // Added 'attachments' to fields to fetch image URLs from Meta
+  let url = `https://graph.facebook.com/v22.0/${conversationId}/messages?fields=id,message,created_time,from,attachments{payload,type}&access_token=${pageAccessToken}`;
   if (since) {
     url += `&since=${since}`;
   }
-  
   const response = await fetch(url);
   const data = await response.json();
-
+  
   if (data.error) throw new Error(data.error.message);
 
   return (data.data || []).map((msg: any) => {
     const isFromPage = msg.from.id === pageId;
+    
+    // Extract image URL if attachment exists
+    let messageText = msg.message;
+    if (!messageText && msg.attachments?.data?.[0]) {
+      const attachment = msg.attachments.data[0];
+      if (attachment.type === 'image' && attachment.payload?.url) {
+        messageText = attachment.payload.url;
+      }
+    }
+
     return {
       id: msg.id,
       conversationId: conversationId,
       senderId: msg.from.id,
       senderName: msg.from.name,
-      text: msg.message,
+      text: messageText || '',
       timestamp: msg.created_time,
       isIncoming: !isFromPage,
       isRead: true
@@ -224,13 +232,11 @@ export const fetchThreadMessages = async (conversationId: string, pageId: string
 
 export const sendPageMessage = async (recipientId: string, text: string, pageAccessToken: string, tag?: string) => {
   const url = `https://graph.facebook.com/v22.0/me/messages?access_token=${pageAccessToken}`;
-  
   const payload: any = {
     recipient: { id: recipientId },
     message: { text },
     messaging_type: tag ? "MESSAGE_TAG" : "RESPONSE"
   };
-
   if (tag) {
     payload.tag = tag;
   }
@@ -240,7 +246,7 @@ export const sendPageMessage = async (recipientId: string, text: string, pageAcc
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  
+
   const data = await response.json();
   if (data.error) {
     const err = new Error(data.error.message);
