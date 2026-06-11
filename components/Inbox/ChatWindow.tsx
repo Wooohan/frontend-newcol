@@ -10,6 +10,20 @@ interface ChatWindowProps {
   onDelete?: () => void;
 }
 
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-rose-500',
+  'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-pink-500',
+  'bg-teal-500', 'bg-orange-500', 'bg-violet-500', 'bg-lime-600',
+];
+
+const getAvatarColor = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }> = ({ conversation, className }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -35,8 +49,10 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
     );
   }
 
+  const colorClass = getAvatarColor(conversation.customerName);
+
   return (
-    <div className={`${className} bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-sm uppercase overflow-hidden`}>
+    <div className={`${className} ${colorClass} flex items-center justify-center text-white font-bold text-lg uppercase overflow-hidden`}>
       {conversation.customerName.charAt(0)}
     </div>
   );
@@ -211,7 +227,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-white relative overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-white dark:bg-slate-900 relative overflow-hidden">
       {showRestrictedPopup && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowRestrictedPopup(false)} />
@@ -279,7 +295,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
         </div>
       )}
 
-      <div className="px-4 md:px-8 py-4 md:py-5 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-xl shrink-0 z-30">
+      <div className="px-4 md:px-8 py-4 md:py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shrink-0 z-30">
         <div className="flex items-center gap-3 md:gap-4 ml-10 md:ml-0 flex-1 min-w-0">
           <div className="relative flex-shrink-0">
             <CachedAvatar conversation={conversation} className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl object-cover shadow-sm bg-slate-100" />
@@ -287,7 +303,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-slate-800 text-sm md:text-base truncate">{conversation.customerName}</h3>
+              <h3 className="font-bold text-slate-800 dark:text-white text-sm md:text-base truncate">{conversation.customerName}</h3>
               {isLoadingMessages && <Loader2 size={12} className="animate-spin text-blue-400 flex-shrink-0" />}
             </div>
 
@@ -349,13 +365,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
         )}
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 bg-slate-50/20 custom-scrollbar">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 bg-slate-50/20 dark:bg-slate-900/50 custom-scrollbar">
         {chatMessages.map((msg) => (
           <div key={msg.id} className={`flex flex-col ${msg.isIncoming ? 'items-start' : 'items-end'}`}>
             <div className={`max-w-[85%] md:max-w-[75%] p-3 md:p-4 rounded-2xl md:rounded-3xl text-sm leading-relaxed shadow-sm break-words overflow-wrap-anywhere ${
               msg.isIncoming
-                ? 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
-                : 'bg-blue-600 text-white shadow-blue-100 rounded-br-none'
+                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-none'
+                : 'bg-blue-600 text-white shadow-blue-100 dark:shadow-blue-900/30 rounded-br-none'
             }`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', hyphens: 'auto' }}>
               {msg.text}
             </div>
@@ -381,11 +397,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
         </div>
       )}
 
-      <div className="p-4 md:p-8 border-t border-slate-100 bg-white shrink-0">
+      <div className="p-4 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
         <div className="flex items-end gap-2 md:gap-3 w-full">
            <button
              onClick={() => setShowLibrary(true)}
-             className={`p-3.5 md:p-4 rounded-xl md:rounded-2xl transition-all shrink-0 ${showLibrary ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 hover:bg-blue-50'}`}
+             className={`p-3.5 md:p-4 rounded-xl md:rounded-2xl transition-all shrink-0 ${showLibrary ? 'bg-blue-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-700'}`}
            >
              <Library size={20} />
            </button>
@@ -393,7 +409,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
              <textarea
                value={inputText}
                onChange={e => setInputText(e.target.value)}
-               className="w-full bg-slate-50 border border-slate-100 rounded-2xl md:rounded-3xl p-3 md:p-4 text-sm md:text-base outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-200 transition-all resize-none min-h-[56px] max-h-[120px] custom-scrollbar"
+               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl md:rounded-3xl p-3 md:p-4 text-sm md:text-base outline-none focus:ring-4 focus:ring-blue-50 dark:focus:ring-blue-900/30 focus:border-blue-200 dark:focus:border-blue-500 transition-all resize-none min-h-[56px] max-h-[120px] custom-scrollbar dark:text-slate-200 dark:placeholder-slate-500"
                placeholder="Type your message..."
                rows={1}
                onKeyDown={(e) => {
