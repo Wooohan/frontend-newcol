@@ -147,7 +147,7 @@ const InboxView: React.FC = () => {
                 onClick={() => setFilter(stat)}
                 className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex-shrink-0 border ${
                   filter === stat
-                    ? 'bg-slate-900 text-white border-slate-900 dark:border-white shadow-lg'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-900 dark:border-white'
                     : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-500'
                 }`}
               >
