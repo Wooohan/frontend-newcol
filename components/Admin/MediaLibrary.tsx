@@ -53,18 +53,18 @@ const MediaLibrary: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Media & Link Control</h2>
-          <p className="text-slate-500 text-sm mt-1">Authorized communication assets only. Agents cannot send non-library content.</p>
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">Media & Link Control</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Authorized communication assets only. Agents cannot send non-library content.</p>
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all"
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/30 dark:shadow-blue-900/40 hover:bg-blue-700 transition-all"
         >
           <Plus size={20} /> New {activeTab === 'links' ? 'Link' : 'Asset'}
         </button>
       </div>
 
-      <div className="bg-white p-2 rounded-2xl border border-slate-100 flex gap-1 w-fit shadow-sm">
+      <div className="bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 flex gap-1 w-fit shadow-sm">
         <button 
           onClick={() => setActiveTab('links')}
           className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'links' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
@@ -82,12 +82,12 @@ const MediaLibrary: React.FC = () => {
       {activeTab === 'links' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {approvedLinks.map(link => (
-            <div key={link.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm group">
+            <div key={link.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group">
               <div className="flex justify-between mb-4">
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><LinkIcon size={20} /></div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-2xl"><LinkIcon size={20} /></div>
                 <button onClick={() => removeApprovedLink(link.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={18} /></button>
               </div>
-              <h4 className="font-bold text-slate-800">{link.title}</h4>
+              <h4 className="font-bold text-slate-800 dark:text-white">{link.title}</h4>
               <p className="text-xs text-blue-500 mt-1 truncate">{link.url}</p>
             </div>
           ))}
@@ -95,7 +95,7 @@ const MediaLibrary: React.FC = () => {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
            {approvedMedia.map(media => (
-             <div key={media.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden group">
+             <div key={media.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden group">
                 <div className="aspect-square bg-slate-50 relative">
                    <img src={media.url} className="w-full h-full object-cover" />
                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-all">
@@ -103,7 +103,7 @@ const MediaLibrary: React.FC = () => {
                    </div>
                 </div>
                 <div className="p-3">
-                   <h4 className="text-[10px] font-bold text-slate-800 truncate uppercase tracking-widest">{media.title}</h4>
+                   <h4 className="text-[10px] font-bold text-slate-800 dark:text-white truncate uppercase tracking-widest">{media.title}</h4>
                 </div>
              </div>
            ))}
