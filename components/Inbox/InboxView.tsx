@@ -214,7 +214,7 @@ const InboxView: React.FC = () => {
              </div>
              <h3 className="text-slate-800 dark:text-white font-bold mb-2">Live Inbox Active</h3>
              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 max-w-[240px] leading-relaxed">
-               Incoming messages appear instantly via WebSocket. No polling needed.
+               Incoming messages appear instantly.
              </p>
           </div>
         )}
