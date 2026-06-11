@@ -170,11 +170,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
     return true;
   };
 
-  const handleSend = async (forcedText?: string) => {
+  const handleSend = async (forcedText?: string, isImage: boolean = false) => {
     const textToSubmit = (forcedText || inputText).trim();
     if (!textToSubmit || isSending) return;
 
-    if (!forcedText && !validateMessageContent(textToSubmit)) return;
+    if (!forcedText && !isImage && !validateMessageContent(textToSubmit)) return;
 
     const currentPage = pages.find(p => p.id === conversation.pageId);
     if (!currentPage || !currentPage.accessToken) {
@@ -195,6 +195,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
 
     try {
       // Send via backend — backend handles FB API call + DB store + Socket.IO emit.
+      const isImageMessage = isImage || textToSubmit.startsWith('data:image');
       const result = await apiService.sendMessage({
         conversationId: conversation.id,
         text: textToSubmit,
@@ -203,6 +204,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
         customerId: conversation.customerId,
         pageAccessToken: currentPage.accessToken,
         isWindowExpired,
+        isImage: isImageMessage,
       });
 
       // Add message to local state as fallback (dedup handles if socket event arrives too)
@@ -294,7 +296,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
                     </button>
                   ))}
                   {approvedMedia.map(media => (
-                    <button onClick={() => handleSend(media.url)} key={media.id} className="relative aspect-video rounded-3xl overflow-hidden border-2 border-slate-50 group shadow-sm">
+                    <button onClick={() => handleSend(media.url, true)} key={media.id} className="relative aspect-video rounded-3xl overflow-hidden border-2 border-slate-50 group shadow-sm">
                        <img src={media.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                        <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-4">
                           <ImageIcon size={24} className="text-white mb-2" />
@@ -381,12 +383,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 bg-slate-50/20 custom-scrollbar">
         {chatMessages.map((msg) => (
           <div key={msg.id} className={`flex flex-col ${msg.isIncoming ? 'items-start' : 'items-end'}`}>
-            <div className={`max-w-[85%] md:max-w-[75%] p-3 md:p-4 rounded-2xl md:rounded-3xl text-sm leading-relaxed shadow-sm break-words overflow-wrap-anywhere ${
+            <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl md:rounded-3xl text-sm leading-relaxed shadow-sm break-words overflow-wrap-anywhere ${
               msg.isIncoming
                 ? 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
                 : 'bg-blue-600 text-white shadow-blue-100 rounded-br-none'
-            }`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', hyphens: 'auto' }}>
-              {msg.text}
+            } ${msg.text?.startsWith('data:image') || (msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)$/) || msg.text?.includes('attachment_id'))) ? 'p-1' : 'p-3 md:p-4'}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', hyphens: 'auto' }}>
+              {msg.text?.includes('data:image') ? (
+                <img src={msg.text.match(/data:image\/[a-zA-Z]*;base64,[^\s]*/)?.[0] || msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(msg.text, '_blank')} />
+              ) : msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)$/) || msg.text?.includes('scontent')) ? (
+                <img src={msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(msg.text, '_blank')} />
+              ) : (
+                msg.text
+              )}
             </div>
             <span className="text-[8px] font-bold text-slate-400 mt-1.5 px-1 uppercase tracking-widest">
               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
