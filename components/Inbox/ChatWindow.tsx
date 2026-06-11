@@ -10,20 +10,6 @@ interface ChatWindowProps {
   onDelete?: () => void;
 }
 
-const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-rose-500',
-  'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-pink-500',
-  'bg-teal-500', 'bg-orange-500', 'bg-violet-500', 'bg-lime-600',
-];
-
-const getAvatarColor = (name: string) => {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-};
-
 const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }> = ({ conversation, className }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -49,10 +35,8 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
     );
   }
 
-  const colorClass = getAvatarColor(conversation.customerName);
-
   return (
-    <div className={`${className} ${colorClass} flex items-center justify-center text-white font-bold text-lg uppercase overflow-hidden`}>
+    <div className={`${className} bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-sm uppercase overflow-hidden`}>
       {conversation.customerName.charAt(0)}
     </div>
   );
@@ -140,6 +124,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [chatMessages]);
+
+  // Mark conversation as read when opened
+  useEffect(() => {
+    const markAsRead = async () => {
+      try {
+        await apiService.markConversationAsRead(conversation.id);
+      } catch (error) {
+        console.warn('Failed to mark conversation as read:', error);
+      }
+    };
+    
+    markAsRead();
+  }, [conversation.id]);
 
   const validateMessageContent = (text: string): boolean => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -298,7 +295,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
       <div className="px-4 md:px-8 py-4 md:py-5 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-xl shrink-0 z-30">
         <div className="flex items-center gap-3 md:gap-4 ml-10 md:ml-0 flex-1 min-w-0">
           <div className="relative flex-shrink-0">
-            <CachedAvatar conversation={conversation} className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl object-cover shadow-sm" />
+            <CachedAvatar conversation={conversation} className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl object-cover shadow-sm bg-slate-100" />
             <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 ${socketConnected ? 'bg-green-500' : 'bg-amber-400'} border-2 border-white rounded-full`}></div>
           </div>
           <div className="min-w-0 flex-1">
