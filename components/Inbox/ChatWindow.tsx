@@ -293,9 +293,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
         )}
 
         {chatMessages.map((msg) => {
-          const isBase64Image = msg.text?.includes('data:image');
-          const isUrlImage = msg.text?.startsWith('http') && 
-                             (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)$/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn.net'));
+          // Robust image detection
+          const base64Match = msg.text?.match(/data:image\/[a-zA-Z]*;base64,[^\s]*/);
+          const urlMatch = msg.text?.match(/https?:\/\/[^\s]+(?:\.(?:jpeg|jpg|gif|png|webp)|scontent|fbcdn\.net)[^\s]*/i);
+          
+          const imageUrl = base64Match ? base64Match[0] : (urlMatch ? urlMatch[0] : null);
+          const isImage = !!imageUrl;
 
           return (
             <div key={msg.id} className={`flex ${msg.isIncoming ? 'justify-start' : 'justify-end'} animate-in slide-in-from-bottom-2 duration-300`}>
@@ -304,14 +307,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
                   msg.isIncoming 
                     ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none' 
                     : 'bg-blue-600 text-white rounded-tr-none'
-                }`}>
-                  {isBase64Image || isUrlImage ? (
+                } ${isImage ? 'p-1' : 'px-4 py-3'}`}>
+                  {isImage ? (
                     <div className="space-y-2">
                       <img 
-                        src={msg.text} 
+                        src={imageUrl} 
                         alt="Attachment" 
-                        className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" 
-                        onClick={() => window.open(msg.text, '_blank')} 
+                        className="rounded-xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" 
+                        onClick={() => window.open(imageUrl, '_blank')} 
                       />
                     </div>
                   ) : (
