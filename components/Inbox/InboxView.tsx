@@ -4,6 +4,20 @@ import { useApp } from '../../store/AppContext';
 import { Conversation, ConversationStatus, UserRole } from '../../types';
 import ChatWindow from './ChatWindow';
 
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-rose-500',
+  'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-pink-500',
+  'bg-teal-500', 'bg-orange-500', 'bg-violet-500', 'bg-lime-600',
+];
+
+const getAvatarColor = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }> = ({ conversation, className }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -29,8 +43,10 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
     );
   }
 
+  const colorClass = getAvatarColor(conversation.customerName);
+
   return (
-    <div className={`${className} bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-xs uppercase overflow-hidden`}>
+    <div className={`${className} ${colorClass} flex items-center justify-center text-white font-bold text-base uppercase overflow-hidden`}>
       {conversation.customerName.charAt(0)}
     </div>
   );
@@ -70,10 +86,10 @@ const InboxView: React.FC = () => {
 
   const getStatusColor = (status: ConversationStatus) => {
     switch (status) {
-      case ConversationStatus.OPEN: return 'bg-blue-50 text-blue-600 border-blue-100';
-      case ConversationStatus.PENDING: return 'bg-amber-50 text-amber-600 border-amber-100';
-      case ConversationStatus.RESOLVED: return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-      default: return 'bg-slate-50 text-slate-500 border-slate-100';
+      case ConversationStatus.OPEN: return 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800';
+      case ConversationStatus.PENDING: return 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-800';
+      case ConversationStatus.RESOLVED: return 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800';
+      default: return 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700';
     }
   };
 
@@ -131,8 +147,8 @@ const InboxView: React.FC = () => {
                 onClick={() => setFilter(stat)}
                 className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex-shrink-0 border ${
                   filter === stat
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                    : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg dark:bg-transparent dark:text-white dark:border-white'
+                    : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300 dark:bg-transparent dark:text-white dark:border-transparent dark:hover:border-slate-500'
                 }`}
               >
                 {stat}
@@ -152,15 +168,15 @@ const InboxView: React.FC = () => {
                   onClick={() => setActiveConvId(conv.id)}
                   className={`w-full text-left p-3 md:p-4 rounded-2xl md:rounded-[28px] transition-all border relative group overflow-hidden ${
                     isActive
-                      ? 'bg-white border-blue-500 shadow-xl shadow-blue-100/50 ring-4 ring-blue-50'
-                      : 'bg-transparent border-transparent hover:bg-white hover:border-slate-200'
+                      ? 'bg-white dark:bg-slate-800 border-blue-500 dark:border-blue-400 shadow-xl shadow-blue-100/50 dark:shadow-blue-900/30 ring-4 ring-blue-50 dark:ring-blue-900/30'
+                      : 'bg-transparent border-transparent hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
                   }`}
                 >
                   <div className="flex gap-3 min-w-0 overflow-hidden">
                     <div className="relative flex-shrink-0">
                       <CachedAvatar conversation={conv} className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl shadow-sm object-cover" />
                       {conv.unreadCount > 0 && (
-                        <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white">
+                        <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white dark:border-slate-800">
                           {conv.unreadCount}
                         </div>
                       )}
@@ -168,7 +184,7 @@ const InboxView: React.FC = () => {
 
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex justify-between items-start mb-0.5 gap-2">
-                        <h4 className={`font-bold truncate text-sm transition-colors flex-1 min-w-0 ${isActive ? 'text-blue-600' : 'text-slate-800'}`}>
+                        <h4 className={`font-bold truncate text-sm transition-colors flex-1 min-w-0 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>
                           {conv.customerName}
                         </h4>
                         <span className="text-[9px] font-bold text-slate-400 flex-shrink-0 uppercase whitespace-nowrap">
