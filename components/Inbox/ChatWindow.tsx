@@ -407,26 +407,57 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 bg-slate-50/20 custom-scrollbar">
-        {chatMessages.map((msg) => (
-          <div key={msg.id} className={`flex flex-col ${msg.isIncoming ? 'items-start' : 'items-end'}`}>
-            <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl md:rounded-3xl text-sm leading-relaxed shadow-sm break-words overflow-wrap-anywhere ${
-              msg.isIncoming
-                ? 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
-                : 'bg-blue-600 text-white shadow-blue-100 rounded-br-none'
-            } ${msg.text?.startsWith('data:image') || (msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn') || msg.text?.includes('fbsbx') || msg.text?.includes('lookaside') || msg.text?.includes('attachment_id'))) ? 'p-1' : 'p-3 md:p-4'}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', hyphens: 'auto' }}>
-              {msg.text?.includes('data:image') ? (
-                <img src={msg.text.match(/data:image\/[a-zA-Z+]*;base64,[^\s]*/)?.[0] || msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" referrerPolicy="no-referrer" onClick={() => window.open(msg.text, '_blank')} />
-              ) : msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn') || msg.text?.includes('fbsbx') || msg.text?.includes('lookaside') || msg.text?.includes('attachment_id')) ? (
-                <img src={msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" referrerPolicy="no-referrer" onClick={() => window.open(msg.text, '_blank')} />
-              ) : (
-                msg.text
+        {chatMessages.map((msg, index) => {
+          const msgDate = new Date(msg.timestamp);
+          const prevMsg = index > 0 ? chatMessages[index - 1] : null;
+          const prevDate = prevMsg ? new Date(prevMsg.timestamp) : null;
+
+          // Show date divider if this is the first message or the date changed
+          const showDateDivider = !prevDate ||
+            msgDate.toDateString() !== prevDate.toDateString();
+
+          const getDateLabel = (date: Date) => {
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1);
+
+            if (date.toDateString() === today.toDateString()) return 'Today';
+            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+          };
+
+          return (
+            <React.Fragment key={msg.id}>
+              {showDateDivider && (
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3 py-1 bg-slate-100 rounded-full">
+                    {getDateLabel(msgDate)}
+                  </span>
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                </div>
               )}
-            </div>
-            <span className="text-[8px] font-bold text-slate-400 mt-1.5 px-1 uppercase tracking-widest">
-              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-        ))}
+              <div className={`flex flex-col ${msg.isIncoming ? 'items-start' : 'items-end'}`}>
+                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl md:rounded-3xl text-sm leading-relaxed shadow-sm break-words overflow-wrap-anywhere ${
+                  msg.isIncoming
+                    ? 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
+                    : 'bg-blue-600 text-white shadow-blue-100 rounded-br-none'
+                } ${msg.text?.startsWith('data:image') || (msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn') || msg.text?.includes('fbsbx') || msg.text?.includes('lookaside') || msg.text?.includes('attachment_id'))) ? 'p-1' : 'p-3 md:p-4'}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', hyphens: 'auto' }}>
+                  {msg.text?.includes('data:image') ? (
+                    <img src={msg.text.match(/data:image\/[a-zA-Z+]*;base64,[^\s]*/)?.[0] || msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" referrerPolicy="no-referrer" onClick={() => window.open(msg.text, '_blank')} />
+                  ) : msg.text?.startsWith('http') && (msg.text?.match(/\.(jpeg|jpg|gif|png|webp)/i) || msg.text?.includes('scontent') || msg.text?.includes('fbcdn') || msg.text?.includes('fbsbx') || msg.text?.includes('lookaside') || msg.text?.includes('attachment_id')) ? (
+                    <img src={msg.text} alt="Attachment" className="rounded-xl md:rounded-2xl max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" referrerPolicy="no-referrer" onClick={() => window.open(msg.text, '_blank')} />
+                  ) : (
+                    msg.text
+                  )}
+                </div>
+                <span className="text-[8px] font-bold text-slate-400 mt-1.5 px-1 uppercase tracking-widest">
+                  {msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {lastError && (
