@@ -190,33 +190,31 @@ const PortalContent: React.FC = () => {
   }, []);
 
   // Define which views are restricted to admin only
-  const adminOnlyViews = ['agents', 'pages', 'library', 'campaigns'];
+  const adminOnlyViews = ['agents', 'pages', 'library'];
+
+  const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || 
+    currentUser?.role?.toString().toUpperCase() === 'SUPER_ADMIN';
 
   // If the current user is not an admin and the active view is admin-only,
   // redirect them to the dashboard
   useEffect(() => {
-    if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN && adminOnlyViews.includes(activeView)) {
+    if (currentUser && !isAdmin && adminOnlyViews.includes(activeView)) {
       setActiveView('dashboard');
     }
-  }, [currentUser, activeView]);
+  }, [currentUser, activeView, isAdmin]);
 
   if (!currentUser) {
     return <LoginPage />;
   }
 
   const renderView = () => {
-    // Guard: prevent non-admin users from accessing admin-only views
-    if (currentUser.role !== UserRole.SUPER_ADMIN && adminOnlyViews.includes(activeView)) {
-      return <DashboardView />;
-    }
-
     switch (activeView) {
       case 'dashboard': return <DashboardView />;
       case 'inbox': return <InboxView />;
       case 'campaigns': return <CampaignView />;
-      case 'agents': return <AgentManagement />;
-      case 'pages': return <PageSettings />;
-      case 'library': return <MediaLibrary />;
+      case 'agents': return isAdmin ? <AgentManagement /> : <DashboardView />;
+      case 'pages': return isAdmin ? <PageSettings /> : <DashboardView />;
+      case 'library': return isAdmin ? <MediaLibrary /> : <DashboardView />;
       case 'settings': return <SettingsView />;
       default: return <DashboardView />;
     }
@@ -227,11 +225,6 @@ const PortalContent: React.FC = () => {
       <Sidebar 
         activeView={activeView} 
         setActiveView={(view: string) => {
-          // Prevent non-admin users from navigating to admin-only views
-          if (currentUser.role !== UserRole.SUPER_ADMIN && adminOnlyViews.includes(view)) {
-            setActiveView('dashboard');
-            return;
-          }
           setActiveView(view);
         }} 
         isCollapsed={isCollapsed}
