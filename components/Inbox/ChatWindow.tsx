@@ -182,12 +182,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
       return;
     }
 
-    if (isWindowExpired) {
-      setLastError({
-        message: 'This conversation is older than 24 hours. Sending with HUMAN_AGENT tag.',
-        isPolicy: true,
-      });
-    }
+
 
     setIsSending(true);
     setLastError(null);
