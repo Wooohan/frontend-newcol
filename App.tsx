@@ -8,6 +8,7 @@ import AgentManagement from './components/Admin/AgentManagement';
 import PageSettings from './components/Admin/PageSettings';
 import MediaLibrary from './components/Admin/MediaLibrary';
 import SettingsView from './components/Admin/SettingsView';
+import CampaignView from './components/Campaign/CampaignView';
 import { initFacebookSDK } from './services/facebookService';
 import { Mail, Lock, Loader2, AlertCircle, MessageSquare, Bell, Menu, CloudOff, Cloud, Database, Copy, Check, Terminal, Download } from 'lucide-react';
 
@@ -189,7 +190,7 @@ const PortalContent: React.FC = () => {
   }, []);
 
   // Define which views are restricted to admin only
-  const adminOnlyViews = ['agents', 'pages', 'library'];
+  const adminOnlyViews = ['agents', 'pages', 'library', 'campaigns'];
 
   // If the current user is not an admin and the active view is admin-only,
   // redirect them to the dashboard
@@ -212,6 +213,7 @@ const PortalContent: React.FC = () => {
     switch (activeView) {
       case 'dashboard': return <DashboardView />;
       case 'inbox': return <InboxView />;
+      case 'campaigns': return <CampaignView />;
       case 'agents': return <AgentManagement />;
       case 'pages': return <PageSettings />;
       case 'library': return <MediaLibrary />;
