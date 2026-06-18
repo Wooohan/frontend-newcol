@@ -10,8 +10,10 @@ export function getSocket(): Socket {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 3000,
+      timeout: 10000,
+      forceNew: false,
     });
 
     socket.on('connect', () => {
