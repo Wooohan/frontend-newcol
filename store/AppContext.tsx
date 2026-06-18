@@ -108,7 +108,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     const socket = getSocket();
 
-    socket.on('connect', () => setSocketConnected(true));
+    socket.on('connect', () => {
+      setSocketConnected(true);
+      // Re-fetch data after reconnection to avoid stale state
+      loadDataFromCloud();
+    });
     socket.on('disconnect', () => setSocketConnected(false));
 
     const unsubMsg = onNewMessage((msg: Message) => {
