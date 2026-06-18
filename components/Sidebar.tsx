@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
@@ -16,7 +15,8 @@ import {
   ChevronRight,
   CheckCircle2,
   Sun,
-  Moon
+  Moon,
+  Megaphone
 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { useTheme } from '../store/ThemeContext';
@@ -48,6 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [UserRole.SUPER_ADMIN, UserRole.AGENT] },
     { id: 'inbox', label: 'Inbox', icon: MessageSquare, roles: [UserRole.SUPER_ADMIN, UserRole.AGENT] },
+    { id: 'campaigns', label: 'Campaigns', icon: Megaphone, roles: [UserRole.SUPER_ADMIN] },
     { id: 'agents', label: 'Agents', icon: Users, roles: [UserRole.SUPER_ADMIN] },
     { id: 'pages', label: 'FB Pages', icon: Facebook, roles: [UserRole.SUPER_ADMIN] },
     { id: 'library', label: 'Media Library', icon: Library, roles: [UserRole.SUPER_ADMIN] },
