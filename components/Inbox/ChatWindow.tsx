@@ -145,12 +145,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
   useEffect(() => {
     const markAsRead = async () => {
       try {
+        // This calls the backend mark-read endpoint which:
+        // 1. Sets unreadCount = 0 in DB
+        // 2. Marks all incoming messages as read in DB
+        // 3. Emits conversation_updated socket event to ALL connected clients
+        // The socket event will update every client's local state (including other agents)
         await apiService.markConversationAsRead(conversation.id);
       } catch (error) {
         console.warn('Failed to mark conversation as read:', error);
       }
     };
     
+    // Always call mark-read when opening a conversation
+    // The backend handles idempotency and emits socket to all clients
     markAsRead();
   }, [conversation.id]);
 
