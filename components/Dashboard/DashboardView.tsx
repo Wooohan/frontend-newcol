@@ -71,6 +71,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const connectedPages = pages.filter((p) => p.isConnected).length;
   const onlineAgents = agents.filter((a) => a.status === 'online').length;
 
+  // My Assigned: conversations directly assigned to the current agent (subset of visibleConversations)
+  const myAssignedCount = visibleConversations.filter((c) => c.assignedAgentId === currentUser?.id).length;
+
   const statCards = [
     {
       label: 'Open Conversations',
@@ -96,14 +99,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       bg: 'bg-emerald-50 dark:bg-emerald-900/20',
       sub: 'Closed conversations',
     },
-    {
-      label: 'Agents Online',
-      value: `${onlineAgents}/${agents.length}`,
-      icon: Users,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50 dark:bg-purple-900/20',
-      sub: `${connectedPages}/${pages.length} pages connected`,
-    },
+    isAdmin
+      ? {
+          label: 'Agents Online',
+          value: `${onlineAgents}/${agents.length}`,
+          icon: Users,
+          color: 'text-purple-600',
+          bg: 'bg-purple-50 dark:bg-purple-900/20',
+          sub: `${connectedPages}/${pages.length} pages connected`,
+        }
+      : {
+          label: 'My Assigned Chats',
+          value: myAssignedCount,
+          icon: Users,
+          color: 'text-purple-600',
+          bg: 'bg-purple-50 dark:bg-purple-900/20',
+          sub: 'Conversations assigned to you',
+        },
   ];
 
   const statusPieData = [
@@ -122,10 +134,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       .slice(0, 6);
   }, [visibleConversations]);
 
-  // Agent leaderboard: conversations currently assigned per agent
+  // Agent leaderboard (admin-only): conversations currently assigned per agent
   const agentLoad = useMemo(() => {
+    if (!isAdmin) return [];
     return agents
-      .filter((a) => a.role === UserRole.AGENT || isAdmin)
       .map((agent) => {
         const assigned = conversations.filter((c) => c.assignedAgentId === agent.id);
         return {
@@ -352,36 +364,69 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
         <div className="bg-slate-900 dark:bg-slate-950 p-8 rounded-[48px] text-white shadow-2xl relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-64 h-64 bg-blue-600/20 rounded-full blur-[100px]" />
-          <div className="flex items-center gap-3 mb-6 relative z-10">
-            <div className="p-2.5 bg-white/10 rounded-xl">
-              <Users size={20} />
-            </div>
-            <h3 className="text-xl font-black tracking-tight">Agent Workload</h3>
-          </div>
 
-          {agentLoad.length > 0 ? (
-            <div className="space-y-4 relative z-10">
-              {agentLoad.map(({ agent, openCount: oc, resolvedCount: rc }) => (
-                <div key={agent.id} className="flex items-center gap-3">
-                  <div className="relative flex-shrink-0">
-                    <img src={agent.avatar} className="w-10 h-10 rounded-xl object-cover" alt="" />
-                    <span
-                      className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${
-                        agent.status === 'online' ? 'bg-emerald-400' : agent.status === 'busy' ? 'bg-amber-400' : 'bg-slate-500'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{agent.name}</p>
-                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">
-                      {oc} active &middot; {rc} resolved
-                    </p>
-                  </div>
+          {isAdmin ? (
+            <>
+              <div className="flex items-center gap-3 mb-6 relative z-10">
+                <div className="p-2.5 bg-white/10 rounded-xl">
+                  <Users size={20} />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-xl font-black tracking-tight">Agent Workload</h3>
+              </div>
+
+              {agentLoad.length > 0 ? (
+                <div className="space-y-4 relative z-10">
+                  {agentLoad.map(({ agent, openCount: oc, resolvedCount: rc }) => (
+                    <div key={agent.id} className="flex items-center gap-3">
+                      <div className="relative flex-shrink-0">
+                        <img src={agent.avatar} className="w-10 h-10 rounded-xl object-cover" alt="" />
+                        <span
+                          className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${
+                            agent.status === 'online' ? 'bg-emerald-400' : agent.status === 'busy' ? 'bg-amber-400' : 'bg-slate-500'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">{agent.name}</p>
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">
+                          {oc} active &middot; {rc} resolved
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-xs font-semibold relative z-10">No agents to show yet.</p>
+              )}
+            </>
           ) : (
-            <p className="text-slate-400 text-xs font-semibold relative z-10">No agents to show yet.</p>
+            <>
+              <div className="flex items-center gap-3 mb-8 relative z-10">
+                <div className="p-2.5 bg-white/10 rounded-xl">
+                  <Sparkles size={20} />
+                </div>
+                <h3 className="text-xl font-black tracking-tight">Your Performance</h3>
+              </div>
+
+              <div className="space-y-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">My Assigned Chats</span>
+                  <span className="text-lg font-black">{myAssignedCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resolved</span>
+                  <span className="text-lg font-black">{resolvedCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Response Time</span>
+                  <span className="text-lg font-black">{dashboardStats.avgResponseTime}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CSAT</span>
+                  <span className="text-lg font-black">{dashboardStats.csat}</span>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
