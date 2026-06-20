@@ -209,7 +209,7 @@ const PortalContent: React.FC = () => {
 
   const renderView = () => {
     switch (activeView) {
-      case 'dashboard': return <DashboardView />;
+      case 'dashboard': return <DashboardView onNavigate={setActiveView} />;
       case 'inbox': return <InboxView />;
       case 'campaigns': return <CampaignView />;
       case 'agents': return isAdmin ? <AgentManagement /> : <DashboardView />;
