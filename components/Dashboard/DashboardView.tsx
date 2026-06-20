@@ -71,8 +71,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const connectedPages = pages.filter((p) => p.isConnected).length;
   const onlineAgents = agents.filter((a) => a.status === 'online').length;
 
-  // My Assigned: conversations directly assigned to the current agent (subset of visibleConversations)
-  const myAssignedCount = visibleConversations.filter((c) => c.assignedAgentId === currentUser?.id).length;
+  // My Assigned: total conversations visible to this agent (their full inbox), same scope as InboxView
+  const myAssignedCount = visibleConversations.length;
 
   const statCards = [
     {
@@ -114,7 +114,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon: Users,
           color: 'text-purple-600',
           bg: 'bg-purple-50 dark:bg-purple-900/20',
-          sub: 'Conversations assigned to you',
+          sub: 'Total chats in your inbox',
         },
   ];
 
@@ -171,9 +171,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               {socketConnected ? <Wifi size={12} /> : <WifiOff size={12} className="animate-pulse" />}
               {socketConnected ? 'Live • Receiving Messages' : 'Reconnecting...'}
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-slate-300 text-[10px] font-black uppercase tracking-widest border border-slate-800 dark:bg-slate-800">
-              <Facebook size={12} /> {connectedPages} Page{connectedPages !== 1 ? 's' : ''} Connected
-            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-slate-300 text-[10px] font-black uppercase tracking-widest border border-slate-800 dark:bg-slate-800">
+                <Facebook size={12} /> {connectedPages} Page{connectedPages !== 1 ? 's' : ''} Connected
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
