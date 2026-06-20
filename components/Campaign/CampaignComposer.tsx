@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Clock, Tag, MessageSquare, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
+import { Send, Clock, Tag, MessageSquare, AlertTriangle, Loader2 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { CampaignConfig } from './CampaignView';
 
@@ -36,7 +36,6 @@ const CampaignComposer: React.FC<CampaignComposerProps> = ({ config, setConfig, 
           name: config.name,
           message: config.message,
           delay: config.delay,
-          tag: config.tag,
           contacts: config.selectedContacts,
         }),
       });
@@ -121,37 +120,6 @@ const CampaignComposer: React.FC<CampaignComposerProps> = ({ config, setConfig, 
             </div>
           </div>
 
-          {/* Message Tag */}
-          <div className="space-y-3">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Tag size={12} /> Message Tag
-            </label>
-            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                Select the Meta message tag for this campaign. This determines how Facebook categorizes your outbound messages.
-              </p>
-              <div className="relative">
-                <select
-                  value={config.tag}
-                  onChange={e => setConfig(prev => ({ ...prev, tag: e.target.value }))}
-                  className="w-full appearance-none px-5 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-semibold cursor-pointer pr-12"
-                >
-                  <option value="ACCOUNT_UPDATE">Account Update</option>
-                  <option value="POST_PURCHASE_UPDATE">Post Purchase Update</option>
-                  <option value="CONFIRMED_EVENT_UPDATE">Confirmed Update</option>
-                </select>
-                <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
-                  {config.tag === 'ACCOUNT_UPDATE' && 'Account Update'}
-                  {config.tag === 'POST_PURCHASE_UPDATE' && 'Post Purchase Update'}
-                  {config.tag === 'CONFIRMED_EVENT_UPDATE' && 'Confirmed Event Update'}
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* Warning */}
           {config.delay < 3 && (
             <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
@@ -192,14 +160,6 @@ const CampaignComposer: React.FC<CampaignComposerProps> = ({ config, setConfig, 
               <span className="text-sm text-slate-500 dark:text-slate-400">Est. Duration</span>
               <span className="text-sm font-bold text-slate-800 dark:text-white">
                 {minutes > 0 ? `${minutes}m ` : ''}{seconds}s
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-500 dark:text-slate-400">Message Tag</span>
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                {config.tag === 'ACCOUNT_UPDATE' && 'Account Update'}
-                {config.tag === 'POST_PURCHASE_UPDATE' && 'Post Purchase'}
-                {config.tag === 'CONFIRMED_EVENT_UPDATE' && 'Confirmed Update'}
               </span>
             </div>
             <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
