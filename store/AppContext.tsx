@@ -293,8 +293,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateConversation: async (id, u) => {
       const updated = conversations.map((c) => (c.id === id ? { ...c, ...u } : c));
       setConversations(updated);
-      const conv = updated.find((c) => c.id === id);
-      if (conv) await apiService.put('conversations', conv);
+      // Use the PATCH endpoint which emits socket events to all clients
+      try {
+        const base = apiService.getApiBase();
+        const url = base ? `${base}/api/conversations/${id}` : `/api/conversations/${id}`;
+        await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(u),
+        });
+      } catch (e) {
+        // Fallback to generic put if PATCH fails
+        const conv = updated.find((c) => c.id === id);
+        if (conv) await apiService.put('conversations', conv);
+      }
     },
     deleteConversation: async (id) => {
       await apiService.delete('conversations', id);
