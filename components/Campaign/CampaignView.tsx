@@ -8,6 +8,7 @@ export interface CampaignConfig {
   name: string;
   message: string;
   delay: number;
+  tag: string;
   selectedContacts: { id: string; customerId: string; customerName: string; pageId: string }[];
 }
 
@@ -17,6 +18,7 @@ const CampaignView: React.FC = () => {
     name: '',
     message: '',
     delay: 3,
+    tag: 'ACCOUNT_UPDATE',
     selectedContacts: [],
   });
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
@@ -32,7 +34,7 @@ const CampaignView: React.FC = () => {
   };
 
   const handleReset = () => {
-    setConfig({ name: '', message: '', delay: 3, selectedContacts: [] });
+    setConfig({ name: '', message: '', delay: 3, tag: 'ACCOUNT_UPDATE', selectedContacts: [] });
     setActiveCampaignId(null);
     setStep('contacts');
   };
