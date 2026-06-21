@@ -49,9 +49,9 @@ export function onAgentStatusChanged(callback: (data: any) => void): () => void 
   return () => { s.off('agent_status_changed', callback); };
 }
 
-export function emitAgentOnline(agentData: { id: string; name: string; role: string }) {
+export function emitAgentOnline(agentId: string, agentName: string) {
   const s = getSocket();
-  s.emit('agent_online', agentData);
+  s.emit('agent_online', { agentId, agentName });
 }
 
 export function disconnectSocket() {
