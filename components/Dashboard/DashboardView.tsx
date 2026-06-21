@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect } from 'react';
 import {
   MessageSquare,
   Clock,
@@ -49,30 +49,33 @@ const timeAgo = (iso: string) => {
 };
 
 const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
-  const { currentUser, conversations, agents, pages, syncMetaConversations, isPolling, socketConnected, dashboardStats } = useApp();
+  const { currentUser, syncMetaConversations, isPolling, socketConnected, dashboardStats, fetchDashboardStats } = useApp();
 
   const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
 
-  // Scope conversations to what this user can actually see, mirroring InboxView's logic
-  const visibleConversations = useMemo(() => {
-    return conversations.filter((conv) => {
-      if (isAdmin) return true;
-      const page = pages.find((p) => p.id === conv.pageId);
-      const agentIds = Array.isArray(page?.assignedAgentIds) ? page.assignedAgentIds : [];
-      return agentIds.includes(currentUser?.id || '');
-    });
-  }, [conversations, pages, isAdmin, currentUser]);
+  // Refresh stats on mount and when user changes
+  useEffect(() => {
+    if (currentUser) {
+      fetchDashboardStats();
+    }
+  }, [currentUser, fetchDashboardStats]);
 
-  const openCount = visibleConversations.filter((c) => c.status === ConversationStatus.OPEN).length;
-  const pendingCount = visibleConversations.filter((c) => c.status === ConversationStatus.PENDING).length;
-  const resolvedCount = visibleConversations.filter((c) => c.status === ConversationStatus.RESOLVED).length;
-  const unreadTotal = visibleConversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-
-  const connectedPages = pages.filter((p) => p.isConnected).length;
-  const onlineAgents = agents.filter((a) => a.status === 'online').length;
-
-  // My Assigned: total conversations visible to this agent (their full inbox), same scope as InboxView
-  const myAssignedCount = visibleConversations.length;
+  // Use backend-fetched stats directly
+  const {
+    openCount = 0,
+    pendingCount = 0,
+    resolvedCount = 0,
+    unreadTotal = 0,
+    totalConversations = 0,
+    onlineAgents = 0,
+    totalAgents = 0,
+    connectedPages = 0,
+    totalPages = 0,
+    chartData = [],
+    avgResponseTime = 'N/A',
+    needsAttention = [],
+    agentWorkload = [],
+  } = dashboardStats;
 
   const statCards = [
     {
@@ -102,15 +105,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     isAdmin
       ? {
           label: 'Agents Online',
-          value: `${onlineAgents}/${agents.length}`,
+          value: `${onlineAgents}/${totalAgents}`,
           icon: Users,
           color: 'text-purple-600',
           bg: 'bg-purple-50 dark:bg-purple-900/20',
-          sub: `${connectedPages}/${pages.length} pages connected`,
+          sub: `${connectedPages}/${totalPages} pages connected`,
         }
       : {
           label: 'My Assigned Chats',
-          value: myAssignedCount,
+          value: totalConversations,
           icon: Users,
           color: 'text-purple-600',
           bg: 'bg-purple-50 dark:bg-purple-900/20',
@@ -125,30 +128,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   ].filter((d) => d.value > 0);
 
   const totalForPie = statusPieData.reduce((s, d) => s + d.value, 0);
-
-  // Needs-attention queue: unread or pending conversations, most recent first
-  const needsAttention = useMemo(() => {
-    return [...visibleConversations]
-      .filter((c) => c.unreadCount > 0 || c.status === ConversationStatus.PENDING)
-      .sort((a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime())
-      .slice(0, 6);
-  }, [visibleConversations]);
-
-  // Agent leaderboard (admin-only): conversations currently assigned per agent
-  const agentLoad = useMemo(() => {
-    if (!isAdmin) return [];
-    return agents
-      .map((agent) => {
-        const assigned = conversations.filter((c) => c.assignedAgentId === agent.id);
-        return {
-          agent,
-          openCount: assigned.filter((c) => c.status !== ConversationStatus.RESOLVED).length,
-          resolvedCount: assigned.filter((c) => c.status === ConversationStatus.RESOLVED).length,
-        };
-      })
-      .sort((a, b) => b.openCount - a.openCount)
-      .slice(0, 5);
-  }, [agents, conversations, isAdmin]);
 
   const handleSync = () => syncMetaConversations(5);
 
@@ -232,7 +211,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
           <div className="h-72 w-full relative z-10">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboardStats.chartData}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
@@ -328,7 +307,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
           {needsAttention.length > 0 ? (
             <div className="space-y-2">
-              {needsAttention.map((conv) => (
+              {needsAttention.map((conv: any) => (
                 <button
                   key={conv.id}
                   onClick={() => onNavigate && onNavigate('inbox')}
@@ -338,7 +317,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     {conv.customerAvatar ? (
                       <img src={conv.customerAvatar} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                     ) : (
-                      conv.customerName.charAt(0)
+                      (conv.customerName || '?').charAt(0)
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -376,22 +355,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <h3 className="text-xl font-black tracking-tight">Agent Workload</h3>
               </div>
 
-              {agentLoad.length > 0 ? (
+              {agentWorkload.length > 0 ? (
                 <div className="space-y-4 relative z-10">
-                  {agentLoad.map(({ agent, openCount: oc, resolvedCount: rc }) => (
-                    <div key={agent.id} className="flex items-center gap-3">
+                  {agentWorkload.map((item: any) => (
+                    <div key={item.agent.id} className="flex items-center gap-3">
                       <div className="relative flex-shrink-0">
-                        <img src={agent.avatar} className="w-10 h-10 rounded-xl object-cover" alt="" />
+                        <img src={item.agent.avatar} className="w-10 h-10 rounded-xl object-cover" alt="" />
                         <span
                           className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${
-                            agent.status === 'online' ? 'bg-emerald-400' : agent.status === 'busy' ? 'bg-amber-400' : 'bg-slate-500'
+                            item.agent.status === 'online' ? 'bg-emerald-400' : item.agent.status === 'busy' ? 'bg-amber-400' : 'bg-slate-500'
                           }`}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate">{agent.name}</p>
+                        <p className="text-sm font-bold truncate">{item.agent.name}</p>
                         <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">
-                          {oc} active &middot; {rc} resolved
+                          {item.openCount} active &middot; {item.resolvedCount} resolved
                         </p>
                       </div>
                     </div>
@@ -413,7 +392,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <div className="space-y-6 relative z-10">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">My Assigned Chats</span>
-                  <span className="text-lg font-black">{myAssignedCount}</span>
+                  <span className="text-lg font-black">{totalConversations}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resolved</span>
@@ -421,11 +400,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Response Time</span>
-                  <span className="text-lg font-black">{dashboardStats.avgResponseTime}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CSAT</span>
-                  <span className="text-lg font-black">{dashboardStats.csat}</span>
+                  <span className="text-lg font-black">{avgResponseTime}</span>
                 </div>
               </div>
             </>
