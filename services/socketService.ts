@@ -43,6 +43,17 @@ export function onConversationUpdated(callback: (conversation: any) => void): ()
   return () => { s.off('conversation_updated', callback); };
 }
 
+export function onAgentStatusChanged(callback: (data: any) => void): () => void {
+  const s = getSocket();
+  s.on('agent_status_changed', callback);
+  return () => { s.off('agent_status_changed', callback); };
+}
+
+export function emitAgentOnline(agentData: { id: string; name: string; role: string }) {
+  const s = getSocket();
+  s.emit('agent_online', agentData);
+}
+
 export function disconnectSocket() {
   if (socket) {
     socket.disconnect();
