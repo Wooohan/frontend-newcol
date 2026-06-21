@@ -214,6 +214,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversation, onDelete }) => {
           conversationId: conversation.id,
           text: textToSubmit,
           isIncoming: false,
+          isRead: true,
           timestamp: new Date().toISOString(),
           senderId: currentUser?.id || 'agent',
           senderName: currentUser?.name || 'Agent',
