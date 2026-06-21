@@ -87,6 +87,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [dashboardStatsData, setDashboardStatsData] = useState<any>(null);
 
   const convsRef = useRef<Conversation[]>([]);
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     convsRef.current = conversations;
@@ -111,8 +112,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     socket.on('connect', () => {
       setSocketConnected(true);
-      // Re-fetch data after reconnection to avoid stale state
-      loadDataFromCloud();
+      // Only re-fetch on RE-connection, not the initial connection
+      // (initial load is handled by the separate useEffect below)
+      if (hasLoadedOnce.current) {
+        loadDataFromCloud();
+      }
     });
     socket.on('disconnect', () => setSocketConnected(false));
 
@@ -287,14 +291,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // One-time initial sync from Meta on login (NOT polling)
+  // Delayed to avoid firing simultaneously with loadDataFromCloud
   useEffect(() => {
     if (dbStatus === 'connected' && currentUser && pages.length > 0) {
-      syncMetaConversations(5);
+      const timer = setTimeout(() => syncMetaConversations(5), 2000);
+      return () => clearTimeout(timer);
     }
   }, [dbStatus, currentUser, pages.length]);
 
   useEffect(() => {
-    loadDataFromCloud();
+    loadDataFromCloud().then(() => { hasLoadedOnce.current = true; });
     return () => { disconnectSocket(); };
   }, []);
 
