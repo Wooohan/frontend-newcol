@@ -4,7 +4,7 @@ import { User, UserRole, FacebookPage, Conversation, Message, ConversationStatus
 import { MASTER_ADMIN, MOCK_USERS } from '../constants';
 import { apiService } from '../services/apiService';
 import { fetchPageConversations, fetchThreadMessages, verifyPageAccessToken } from '../services/facebookService';
-import { onNewMessage, onConversationUpdated, getSocket, disconnectSocket } from '../services/socketService';
+import { onNewMessage, onConversationUpdated, onAgentStatusChanged, getSocket, disconnectSocket, emitAgentOnline } from '../services/socketService';
 
 interface SystemLog {
   id: string;
@@ -59,6 +59,7 @@ interface AppContextType {
   isPolling: boolean;
   refreshMetadata: () => Promise<void>;
   dashboardStats: any;
+  fetchDashboardStats: () => Promise<void>;
   forceWriteTest: () => Promise<boolean>;
   clearLocalChats: () => Promise<void>;
   socketConnected: boolean;
@@ -84,6 +85,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [dashboardStatsData, setDashboardStatsData] = useState<any>(null);
 
   const convsRef = useRef<Conversation[]>([]);
 
@@ -135,11 +137,51 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     });
 
+    // Listen for agent status changes (online/offline)
+    const unsubAgentStatus = onAgentStatusChanged((data) => {
+      setAgents((prev) =>
+        prev.map((a) => (a.id === data.agentId ? { ...a, status: data.status as any } : a))
+      );
+    });
+
     return () => {
       unsubMsg();
       unsubConv();
+      unsubAgentStatus();
     };
   }, []);
+
+  // Emit agent online status when user is logged in and socket is connected
+  useEffect(() => {
+    if (currentUser && socketConnected) {
+      emitAgentOnline(currentUser.id, currentUser.name);
+    }
+  }, [currentUser, socketConnected]);
+
+  // Fetch dashboard stats from backend (server-side aggregation)
+  const fetchDashboardStats = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const base = apiService.getApiBase();
+      const url = base
+        ? `${base}/api/dashboard/stats?agentId=${currentUser.id}&role=${currentUser.role}`
+        : `/api/dashboard/stats?agentId=${currentUser.id}&role=${currentUser.role}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setDashboardStatsData(data);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch dashboard stats:', e);
+    }
+  }, [currentUser]);
+
+  // Refresh dashboard stats when connected and user is available
+  useEffect(() => {
+    if (dbStatus === 'connected' && currentUser) {
+      fetchDashboardStats();
+    }
+  }, [dbStatus, currentUser, fetchDashboardStats]);
 
   // =============================================
   // Meta sync (on-demand only, not polling)
@@ -439,19 +481,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const collections = await apiService.getDbMetadata();
       setDbCollections(collections);
     },
-    dashboardStats: {
-      openChats: conversations.filter((c) => c.status === ConversationStatus.OPEN).length,
-      avgResponseTime: '0m 45s',
-      resolvedToday: conversations.filter((c) => c.status === ConversationStatus.RESOLVED).length,
-      csat: '99%',
-      chartData: [
-        { name: 'Mon', conversations: 14 },
-        { name: 'Tue', conversations: 28 },
-        { name: 'Wed', conversations: 31 },
-        { name: 'Thu', conversations: 19 },
-        { name: 'Fri', conversations: 44 },
-      ],
+    dashboardStats: dashboardStatsData || {
+      openCount: 0,
+      pendingCount: 0,
+      resolvedCount: 0,
+      unreadTotal: 0,
+      totalConversations: 0,
+      onlineAgents: 0,
+      totalAgents: 0,
+      connectedPages: 0,
+      totalPages: 0,
+      chartData: [],
+      avgResponseTime: 'N/A',
+      needsAttention: [],
+      agentWorkload: [],
     },
+    fetchDashboardStats,
     forceWriteTest: async () => {
       try {
         return await apiService.manualWriteToTest();
