@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, MessageSquareOff, Facebook, ChevronLeft, RefreshCw, Loader2, Zap, History, Clock } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { Conversation, ConversationStatus, UserRole } from '../../types';
@@ -52,12 +52,17 @@ const CachedAvatar: React.FC<{ conversation: Conversation, className?: string }>
   );
 };
 
+const PAGE_SIZE = 50;
+
 const InboxView: React.FC = () => {
   const { conversations, currentUser, pages, syncMetaConversations, syncFullHistory, lastSyncTime, isPolling, socketConnected } = useApp();
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ConversationStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeepSyncing, setIsDeepSyncing] = useState(false);
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const activeConv = conversations.find(c => c.id === activeConvId) || null;
 
@@ -83,6 +88,32 @@ const InboxView: React.FC = () => {
     const matchesSearch = conv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  // Paginated slice of visible conversations
+  const paginatedConversations = visibleConversations.slice(0, displayCount);
+  const hasMore = displayCount < visibleConversations.length;
+
+  // Reset display count when filter or search changes
+  useEffect(() => {
+    setDisplayCount(PAGE_SIZE);
+  }, [filter, searchQuery]);
+
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    const container = listRef.current;
+    if (!container || isLoadingMore || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    // Trigger load when user is within 100px of the bottom
+    if (scrollTop + clientHeight >= scrollHeight - 100) {
+      setIsLoadingMore(true);
+      // Simulate a small delay to show the loader (data is already in memory)
+      setTimeout(() => {
+        setDisplayCount(prev => prev + PAGE_SIZE);
+        setIsLoadingMore(false);
+      }, 400);
+    }
+  }, [isLoadingMore, hasMore]);
 
   const getStatusColor = (status: ConversationStatus) => {
     switch (status) {
@@ -157,51 +188,72 @@ const InboxView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-3 md:px-4 pb-8 space-y-2">
-          {visibleConversations.length > 0 ? (
-            visibleConversations.map((conv) => {
-              const isActive = activeConv?.id === conv.id;
+        <div 
+          ref={listRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-3 md:px-4 pb-8 space-y-2"
+        >
+          {paginatedConversations.length > 0 ? (
+            <>
+              {paginatedConversations.map((conv) => {
+                const isActive = activeConv?.id === conv.id;
 
-              return (
-                <button
-                  key={conv.id}
-                  onClick={() => setActiveConvId(conv.id)}
-                  className={`w-full text-left p-3 md:p-4 rounded-2xl md:rounded-[28px] transition-all border relative group overflow-hidden ${
-                    isActive
-                      ? 'bg-white dark:bg-slate-800 border-blue-500 dark:border-blue-400 shadow-xl shadow-blue-100/50 dark:shadow-blue-900/30 ring-4 ring-blue-50 dark:ring-blue-900/30'
-                      : 'bg-transparent border-transparent hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex gap-3 min-w-0 overflow-hidden">
-                    <div className="relative flex-shrink-0">
-                      <CachedAvatar conversation={conv} className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl shadow-sm object-cover" />
-                      {conv.unreadCount > 0 && (
-                        <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white dark:border-slate-800">
-                          {conv.unreadCount}
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => setActiveConvId(conv.id)}
+                    className={`w-full text-left p-3 md:p-4 rounded-2xl md:rounded-[28px] transition-all border relative group overflow-hidden ${
+                      isActive
+                        ? 'bg-white dark:bg-slate-800 border-blue-500 dark:border-blue-400 shadow-xl shadow-blue-100/50 dark:shadow-blue-900/30 ring-4 ring-blue-50 dark:ring-blue-900/30'
+                        : 'bg-transparent border-transparent hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex gap-3 min-w-0 overflow-hidden">
+                      <div className="relative flex-shrink-0">
+                        <CachedAvatar conversation={conv} className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl shadow-sm object-cover" />
+                        {conv.unreadCount > 0 && (
+                          <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white dark:border-slate-800">
+                            {conv.unreadCount}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex justify-between items-start mb-0.5 gap-2">
+                          <h4 className={`font-bold truncate text-sm transition-colors flex-1 min-w-0 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                            {conv.customerName}
+                          </h4>
+                          <span className="text-[9px] font-bold text-slate-400 flex-shrink-0 uppercase whitespace-nowrap">
+                            {new Date(conv.lastTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                      )}
+                        <p className="text-[11px] truncate text-slate-500 mb-2 font-medium overflow-hidden">{conv.lastMessage}</p>
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tighter border shrink-0 ${getStatusColor(conv.status)}`}>
+                            {conv.status}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+                  </button>
+                );
+              })}
 
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex justify-between items-start mb-0.5 gap-2">
-                        <h4 className={`font-bold truncate text-sm transition-colors flex-1 min-w-0 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}`}>
-                          {conv.customerName}
-                        </h4>
-                        <span className="text-[9px] font-bold text-slate-400 flex-shrink-0 uppercase whitespace-nowrap">
-                          {new Date(conv.lastTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <p className="text-[11px] truncate text-slate-500 mb-2 font-medium overflow-hidden">{conv.lastMessage}</p>
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tighter border shrink-0 ${getStatusColor(conv.status)}`}>
-                          {conv.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })
+              {/* Loading more indicator */}
+              {isLoadingMore && (
+                <div className="flex items-center justify-center py-4 gap-2">
+                  <Loader2 size={16} className="animate-spin text-blue-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading more...</span>
+                </div>
+              )}
+
+              {/* End of list indicator */}
+              {!hasMore && visibleConversations.length > PAGE_SIZE && (
+                <div className="flex items-center justify-center py-4">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">All {visibleConversations.length} conversations loaded</span>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-slate-300">
               <MessageSquareOff size={32} className="opacity-20 mb-3" />
