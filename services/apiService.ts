@@ -86,6 +86,18 @@ class APIService {
     return response.json();
   }
 
+  async getDashboardStats(agentId: string, role: string): Promise<any> {
+    const url = API_BASE
+      ? `${API_BASE}/api/dashboard/stats?agentId=${agentId}&role=${role}`
+      : `/api/dashboard/stats?agentId=${agentId}&role=${role}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch dashboard stats: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
   setDatabase(_name: string) {}
   getDatabaseName() { return 'PostgreSQL'; }
 
